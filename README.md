@@ -134,6 +134,103 @@ python -m src.models.student.train \
 Студент — char-level BiLSTM-CRF, обучается на корпусе (char-спаны). Быстрее
 GLiNER в ~40 раз на CPU.
 
+## Сборка датасета
+
+Корпус собирается из трёх источников и объединяется в `data/hybrid`:
+
+1. **`data/real`** — реальные русскоязычные корпуса (NEREL, FactRuEval/Kaggle),
+   собираются скриптом `build_real_corpus.py`.
+2. **`data/redmadrobot`** — task-ориентированный русский PII-корпус (MIT),
+   скачивается скриптом `fetch_redmadrobot_train.py`.
+3. **`data/supplement`** — фокусный синтетический дополняющий корпус для классов,
+   которых нет в публичных данных (`ru_pii/synthetic_supplement.py`).
+
+Всё собирается одной командой (ставит зависимости, качает/генерирует источники,
+дедуплицирует, проверяет покрытие всех классов и падает при нарушении политики):
+
+```bash
+cd ru_gliner_hybrid_v4
+bash scripts/make_corpus.sh
+cat data/hybrid/audit.json   # отчёт о покрытии и источниках
+```
+
+Результат — `data/hybrid/{train,dev,test}.jsonl` + `manifest.json` + `audit.json`.
+Политика: сначала готовые публичные корпуса, синтетика — только закрывает пробелы
+и не должна превышать 45% train. Бенчмарки в train не попадают (остаются held-out).
+
+> **Важно:** датасеты (JSONL) не коммитятся в git — они слишком большие и
+> пересоздаются скриптом. После клонирования репозитория сначала выполните
+> `make_corpus.sh`.
+
+## Дообучение GLiNER (teacher)
+
+Дообучение teacher-модели (deberta-v3-small) на собранном корпусе:
+
+```bash
+cd ru_gliner_hybrid_v4
+# Smoke-прогон (2 шага, проверка интеграции, без GPU-требований):
+python scripts/train.py --config configs/train_small.json --smoke
+
+# Полный прогон на GPU (2000 шагов + калибровка порогов на dev + бенчмарк):
+python scripts/train.py --config configs/train_small.json --device cuda
+```
+
+Ключевые флаги `train.py`:
+
+| Флаг | Назначение |
+|---|---|
+| `--config` | JSON-конфиг (пути, шаги, LR, батч). По умолчанию `configs/train_small.json` |
+| `--model` | Локальная директория GLiNER или явно разрешённый Hub-модель |
+| `--device` | `auto` \| `cpu` \| `cuda` |
+| `--smoke` | 2 шага / 48 train / 12 dev — только проверка интеграции |
+| `--external` | Доп. канонический train-JSONL (суммарно ≤ 25% от base train) |
+| `--allow-download` | Разрешить скачивание модели с Hub (по умолчанию offline) |
+| `--skip-benchmark` | Пропустить калибровку порогов и пост-тренировочный бенчмарк |
+
+Результат — директория `artifacts/gliner-ru-pii-small/` с весами
+(`model.safetensors`), `labels.json`, `thresholds.json`, `training_log.jsonl` и
+`benchmark.json`. Полный прогон на CPU требует явного `--allow-slow-cpu`.
+
+## Дистилляция студента (teacher → student)
+
+Дистилляция поднимает recall студента до уровня teacher: teacher прогоняется по
+корпусу, его предсказания сливаются с золотыми метками в расширенный корпус
+(`train_expanded.jsonl`), и на нём обучается студент.
+
+### Локально (CPU/MPS)
+
+```bash
+python -m src.models.student.train \
+  --train ru_gliner_hybrid_v4/data/hybrid/train.jsonl \
+  --dev ru_gliner_hybrid_v4/data/hybrid/dev.jsonl \
+  --teacher ru_gliner_hybrid_v4/models/gliner-ru-pii-small \
+  --out artifacts/student-pii.pt \
+  --epochs 8 --device mps
+```
+
+Флаг `--teacher <gliner-model-dir>` добавляет soft-метки teacher на train-тексты.
+Без него студент учится только на золотых метках.
+
+### На GPU (Kaggle, 2×T4)
+
+Тяжёлый teacher (644MB) и большой корпус гоняются на Kaggle. Скрипт
+`scripts/push_kaggle_distill.sh` собирает бандл (teacher + корпус + `src`),
+заливает его как приватный датасет и запускает kernel `kaggle_distill_train.py`:
+
+```bash
+# Требуется kaggle CLI и ключ (KAGGLE_KEY или ~/.kaggle/kaggle.json)
+bash scripts/push_kaggle_distill.sh
+```
+
+Пайплайн `kaggle_distill_train.py`:
+1. Устанавливает зависимости из `requirements-distill.txt`.
+2. Прогоняет teacher по train-корпусу на GPU → `train_expanded.jsonl`.
+3. Обучает студента на расширенном корпусе (8 эпох, cuda).
+4. Упаковывает чекпоинт в `student-pii.tar.gz` для скачивания.
+
+Параметры студента на Kaggle задаются env: `STUDENT_EPOCHS`, `STUDENT_BATCH_SIZE`,
+`STUDENT_MAX_LEN`, `STUDENT_HIDDEN_DIM`, `STUDENT_NUM_LAYERS`.
+
 ## Безопасность
 
 - Исходные ПД не попадают в логи (логируются только типы и метрики).

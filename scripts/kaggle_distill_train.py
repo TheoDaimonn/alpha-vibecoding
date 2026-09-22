@@ -37,6 +37,9 @@ if not candidates:
 train_path = candidates[0]
 dev_path = train_path.parent / "dev.jsonl"
 
+# --- Install deps (gliner teacher + torch) before importing ---
+subprocess.run([sys.executable, "-m", "pip", "install", "-q", "-r", str(ROOT / "requirements-distill.txt")], check=True)
+
 # --- 1. Generate teacher predictions on the training corpus ---
 from gliner import GLiNER  # noqa: E402
 from ru_pii.inference import RussianPIIDetector  # noqa: E402
@@ -48,7 +51,7 @@ teacher = RussianPIIDetector.from_pretrained(
 )
 print("Teacher loaded", flush=True)
 
-expanded = train_path.parent / "train_expanded.jsonl"
+expanded = Path("/kaggle/working") / "train_expanded.jsonl"
 with train_path.open(encoding="utf-8") as fin, expanded.open("w", encoding="utf-8") as fout:
     texts = []
     rows = []

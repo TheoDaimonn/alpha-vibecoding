@@ -8,8 +8,8 @@
   body { font-family: -apple-system, system-ui, sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; background: #f5f6fa; color: #222; }
   h1 { font-size: 24px; }
   .card { background: #fff; border-radius: 10px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
-  textarea { width: 100%; min-height: 100px; font-size: 15px; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-family: inherit; }
-  .row { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+  textarea { width: 100%; min-height: 90px; font-size: 15px; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-family: inherit; }
+  .row { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; align-items: center; }
   button { padding: 10px 18px; font-size: 15px; border: none; border-radius: 8px; cursor: pointer; }
   .btn-mask { background: #2563eb; color: #fff; }
   .btn-unmask { background: #059669; color: #fff; }
@@ -17,20 +17,21 @@
   .result { margin-top: 12px; padding: 12px; background: #f0fdf4; border-radius: 8px; font-family: monospace; white-space: pre-wrap; word-break: break-word; }
   .result.err { background: #fef2f2; color: #b91c1c; }
   .meta { font-size: 13px; color: #666; margin-top: 8px; }
-  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-left: 8px; }
-  .badge.green { background: #dcfce7; color: #166534; }
-  .badge.red { background: #fee2e2; color: #991b1b; }
   .presets { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
   .preset { background: #eef2ff; border: 1px solid #c7d2fe; color: #3730a3; padding: 6px 12px; border-radius: 20px; font-size: 13px; cursor: pointer; }
   .preset:hover { background: #e0e7ff; }
-  label { font-weight: 600; font-size: 14px; }
+  label { font-weight: 600; font-size: 14px; display: block; margin-bottom: 6px; }
+  .step { font-size: 13px; color: #888; margin-bottom: 4px; }
+  .arrow { font-size: 22px; text-align: center; color: #999; margin: 8px 0; }
+  .pid { font-family: monospace; background: #f3f4f6; padding: 2px 6px; border-radius: 4px; }
 </style>
 </head>
 <body>
   <h1>🛡️ PII Security Module — ручной тест</h1>
 
   <div class="card">
-    <label>Текст для обработки</label>
+    <div class="step">Шаг 1 — маскирование</div>
+    <label>Исходный текст</label>
     <textarea id="input" placeholder="Введите текст с персональными данными...">Клиент Иванов Иван Иванович, email: ivanov@example.org, телефон +7 900 123-45-67, паспорт 4509 123456, ИНН 7707083893, карта 4276 1234 5678 9012</textarea>
 
     <div class="presets">
@@ -42,12 +43,22 @@
     </div>
 
     <div class="row">
-      <button class="btn-mask" onclick="process('mask')">🔒 Маскировать</button>
-      <button class="btn-unmask" onclick="process('unmask')">🔓 Демаскировать</button>
-      <button class="btn-copy" onclick="copyResult()">📋 Копировать</button>
+      <button class="btn-mask" onclick="doMask()">🔒 Маскировать</button>
+      <button class="btn-copy" onclick="copyToUnmask()">⬇️ В маску</button>
     </div>
+  </div>
 
-    <div class="meta">payload_id: <span id="pid">—</span></div>
+  <div class="arrow">▼</div>
+
+  <div class="card">
+    <div class="step">Шаг 2 — демаскирование</div>
+    <label>Замаскированный текст</label>
+    <textarea id="unmaskInput" placeholder="Сюда автоматически попадёт маска после маскирования..."></textarea>
+    <div class="row">
+      <button class="btn-unmask" onclick="doUnmask()">🔓 Демаскировать</button>
+      <button class="btn-copy" onclick="copyResult()">📋 Копировать результат</button>
+    </div>
+    <div class="meta">payload_id: <span class="pid" id="pid">—</span></div>
   </div>
 
   <div class="card">
@@ -63,7 +74,6 @@
 
 <script>
   let currentPid = null;
-  let lastMasked = null;
 
   const PRESETS = {
     "ФИО + email + телефон": "Клиент Иванов Иван Иванович, email: ivanov@example.org, телефон +7 900 123-45-67",
@@ -77,22 +87,30 @@
     document.getElementById('input').value = PRESETS[el.textContent];
   }
 
-  async function process(mode) {
+  async function doMask() {
     const payload = document.getElementById('input').value;
     if (!payload.trim()) { alert('Введите текст'); return; }
+    currentPid = 'manual-' + Date.now();
+    await call('/process', { payload, payload_id: currentPid }, 'Маскирование');
+  }
 
-    if (mode === 'mask') {
-      currentPid = 'manual-' + Date.now();
-      lastMasked = null;
+  async function doUnmask() {
+    const payload = document.getElementById('unmaskInput').value;
+    if (!payload.trim()) { alert('Вставьте маску в поле демаскирования'); return; }
+    if (!currentPid) { alert('Сначала маскируйте'); return; }
+    await call('/process', { payload, payload_id: currentPid }, 'Демаскирование');
+  }
+
+  function copyToUnmask() {
+    const r = document.getElementById('result').textContent;
+    if (r && r !== '—' && r !== '⏳ Обработка...') {
+      document.getElementById('unmaskInput').value = r;
     } else {
-      if (!currentPid) { alert('Сначала маскируйте'); return; }
-      if (!lastMasked) { alert('Сначала маскируйте (нужна маска для демаскирования)'); return; }
+      alert('Сначала маскируйте');
     }
+  }
 
-    const body = mode === 'mask'
-      ? { payload, payload_id: currentPid }
-      : { payload: lastMasked, payload_id: currentPid };
-
+  async function call(url, body, label) {
     const res = document.getElementById('result');
     const meta = document.getElementById('meta');
     res.className = 'result';
@@ -101,7 +119,7 @@
 
     try {
       const t0 = performance.now();
-      const resp = await fetch('/process', {
+      const resp = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
@@ -116,12 +134,7 @@
       }
 
       res.textContent = data.result;
-      if (mode === 'mask') {
-        lastMasked = data.result;
-        meta.textContent = `Маскирование · ${dt}s · payload_id=${currentPid}`;
-      } else {
-        meta.textContent = `Демаскирование · ${dt}s · payload_id=${currentPid}`;
-      }
+      meta.textContent = `${label} · ${dt}s · payload_id=${currentPid}`;
       document.getElementById('pid').textContent = currentPid;
       loadMetrics();
     } catch (e) {

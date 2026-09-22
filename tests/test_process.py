@@ -71,11 +71,10 @@ def client() -> TestClient:
     replica = FakeReplica()
     shared_redis = FakeRedis()
     engine = InferenceEngine(detector=replica, store=shared_redis, threads=1, batch_size=4, batch_timeout_s=0.01)
-    api_main._store = shared_redis
     api_main._engine = engine
+    engine.store = shared_redis
     with TestClient(api_main.app) as c:
         yield c
-    api_main._store = None
     api_main._engine = None
 
 

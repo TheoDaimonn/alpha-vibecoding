@@ -1,0 +1,7 @@
+{
+  "base_model": "gliner-community/gliner_small-v2.5",
+  "revision": "f227d3cd637bd4e6757ae143935316d062393341",
+  "training_executed": false,
+  "status": "downloaded_pretrained_only",
+  "created_at": "2026-09-22T11:18:58.948435+00:00"
+}

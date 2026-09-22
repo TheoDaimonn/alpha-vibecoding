@@ -23,14 +23,12 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from ..core.config import settings
-from ..core.correlation import create_correlation_store
 from ..core.engine import InferenceEngine
 from .schemas import ProcessRequest, ProcessResponse
 
 logger = logging.getLogger("pii.api")
 
 # --- shared singletons ---
-_store: Any | None = None
 _engine: InferenceEngine | None = None
 
 # --- metrics ---
@@ -45,10 +43,13 @@ _metrics: dict[str, Any] = {
 
 
 def get_store() -> Any:
-    global _store
-    if _store is None:
-        _store = create_correlation_store()
-    return _store
+    """Return the correlation store shared with the inference engine.
+
+    The engine owns the store (it writes correlations); the API reads from the
+    same instance so masking/unmasking correlate correctly even with the
+    in-memory backend.
+    """
+    return get_engine().store
 
 
 def get_engine() -> InferenceEngine:

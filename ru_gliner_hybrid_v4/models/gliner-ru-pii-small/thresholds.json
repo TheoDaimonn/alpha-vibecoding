@@ -1,0 +1,231 @@
+{
+  "thresholds": {
+    "ADDRESS": 0.05,
+    "APARTMENT": 0.05,
+    "BIRTH_DATE": 0.55,
+    "BIRTH_PLACE": 0.4,
+    "BUILDING": 0.05,
+    "CARDHOLDER": 0.05,
+    "CARD_NUMBER": 0.05,
+    "CITIZENSHIP": 0.4,
+    "CITY": 0.35,
+    "COUNTRY": 0.1,
+    "CVV": 0.05,
+    "DISTRICT": 0.85,
+    "DRIVER_LICENSE": 0.05,
+    "DRIVER_LICENSE_NUMBER": 0.05,
+    "DRIVER_LICENSE_SERIES": 0.05,
+    "EMAIL": 0.05,
+    "HOUSE": 0.05,
+    "INN": 0.05,
+    "PASSPORT": 0.05,
+    "PASSPORT_DIVISION_CODE": 0.05,
+    "PASSPORT_ISSUER": 0.2,
+    "PASSPORT_ISSUE_DATE": 0.1,
+    "PASSPORT_NUMBER": 0.1,
+    "PASSPORT_SERIES": 0.85,
+    "PERSON": 0.2,
+    "PHONE": 0.1,
+    "PIN": 0.05,
+    "POSTAL_CODE": 0.05,
+    "PUBLIC_ADDRESS": 0.05,
+    "PUBLIC_PERSON": 0.4,
+    "REGION": 0.3,
+    "STREET": 0.05
+  },
+  "selection_split": "dev",
+  "detail": {
+    "ADDRESS": {
+      "status": "calibrated",
+      "support": 546,
+      "f_beta": 1.0,
+      "beta": 2.0
+    },
+    "APARTMENT": {
+      "status": "calibrated",
+      "support": 273,
+      "f_beta": 1.0,
+      "beta": 2.0
+    },
+    "BIRTH_DATE": {
+      "status": "calibrated",
+      "support": 288,
+      "f_beta": 0.9707724425887265,
+      "beta": 2.0
+    },
+    "BIRTH_PLACE": {
+      "status": "calibrated",
+      "support": 285,
+      "f_beta": 0.9668313338038109,
+      "beta": 2.0
+    },
+    "BUILDING": {
+      "status": "calibrated",
+      "support": 273,
+      "f_beta": 1.0,
+      "beta": 2.0
+    },
+    "CARDHOLDER": {
+      "status": "calibrated",
+      "support": 136,
+      "f_beta": 1.0,
+      "beta": 2.0
+    },
+    "CARD_NUMBER": {
+      "status": "calibrated",
+      "support": 272,
+      "f_beta": 1.0,
+      "beta": 2.0
+    },
+    "CITIZENSHIP": {
+      "status": "calibrated",
+      "support": 273,
+      "f_beta": 1.0,
+      "beta": 2.0
+    },
+    "CITY": {
+      "status": "calibrated",
+      "support": 754,
+      "f_beta": 0.9281045751633987,
+      "beta": 2.0
+    },
+    "COUNTRY": {
+      "status": "calibrated",
+      "support": 628,
+      "f_beta": 0.8701532912533815,
+      "beta": 2.0
+    },
+    "CVV": {
+      "status": "calibrated",
+      "support": 272,
+      "f_beta": 1.0,
+      "beta": 2.0
+    },
+    "DISTRICT": {
+      "status": "calibrated",
+      "support": 18,
+      "f_beta": 0.30864197530864196,
+      "beta": 2.0
+    },
+    "DRIVER_LICENSE": {
+      "status": "calibrated",
+      "support": 409,
+      "f_beta": 1.0,
+      "beta": 2.0
+    },
+    "DRIVER_LICENSE_NUMBER": {
+      "status": "calibrated",
+      "support": 409,
+      "f_beta": 1.0,
+      "beta": 2.0
+    },
+    "DRIVER_LICENSE_SERIES": {
+      "status": "calibrated",
+      "support": 409,
+      "f_beta": 1.0,
+      "beta": 2.0
+    },
+    "EMAIL": {
+      "status": "calibrated",
+      "support": 272,
+      "f_beta": 1.0,
+      "beta": 2.0
+    },
+    "HOUSE": {
+      "status": "calibrated",
+      "support": 546,
+      "f_beta": 1.0,
+      "beta": 2.0
+    },
+    "INN": {
+      "status": "calibrated",
+      "support": 136,
+      "f_beta": 1.0,
+      "beta": 2.0
+    },
+    "PASSPORT": {
+      "status": "calibrated",
+      "support": 409,
+      "f_beta": 1.0,
+      "beta": 2.0
+    },
+    "PASSPORT_DIVISION_CODE": {
+      "status": "calibrated",
+      "support": 409,
+      "f_beta": 1.0,
+      "beta": 2.0
+    },
+    "PASSPORT_ISSUER": {
+      "status": "calibrated",
+      "support": 409,
+      "f_beta": 1.0,
+      "beta": 2.0
+    },
+    "PASSPORT_ISSUE_DATE": {
+      "status": "calibrated",
+      "support": 409,
+      "f_beta": 1.0,
+      "beta": 2.0
+    },
+    "PASSPORT_NUMBER": {
+      "status": "calibrated",
+      "support": 409,
+      "f_beta": 1.0,
+      "beta": 2.0
+    },
+    "PASSPORT_SERIES": {
+      "status": "calibrated",
+      "support": 409,
+      "f_beta": 1.0,
+      "beta": 2.0
+    },
+    "PERSON": {
+      "status": "calibrated",
+      "support": 4429,
+      "f_beta": 0.932475884244373,
+      "beta": 2.0
+    },
+    "PHONE": {
+      "status": "calibrated",
+      "support": 272,
+      "f_beta": 1.0,
+      "beta": 2.0
+    },
+    "PIN": {
+      "status": "calibrated",
+      "support": 136,
+      "f_beta": 1.0,
+      "beta": 2.0
+    },
+    "POSTAL_CODE": {
+      "status": "calibrated",
+      "support": 273,
+      "f_beta": 1.0,
+      "beta": 2.0
+    },
+    "PUBLIC_ADDRESS": {
+      "status": "calibrated",
+      "support": 136,
+      "f_beta": 1.0,
+      "beta": 2.0
+    },
+    "PUBLIC_PERSON": {
+      "status": "calibrated",
+      "support": 136,
+      "f_beta": 1.0,
+      "beta": 2.0
+    },
+    "REGION": {
+      "status": "calibrated",
+      "support": 372,
+      "f_beta": 0.8040201005025126,
+      "beta": 2.0
+    },
+    "STREET": {
+      "status": "calibrated",
+      "support": 546,
+      "f_beta": 0.0,
+      "beta": 2.0
+    }
+  }
+}

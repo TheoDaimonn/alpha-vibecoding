@@ -47,6 +47,7 @@ copy_tree() {
 copy_file scripts/kaggle_distill_train.py
 cp "$ROOT_DIR/scripts/kaggle_distill_train.py" "$WORK_DIR/kaggle_distill_train.py"
 copy_file requirements.txt
+copy_file requirements-distill.txt
 copy_tree src
 copy_tree ru_gliner_hybrid_v4/ru_pii
 copy_tree ru_gliner_hybrid_v4/data/hybrid
