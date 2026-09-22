@@ -1,0 +1,16 @@
+__pycache__/
+.pytest_cache/
+.ipynb_checkpoints/
+.venv/
+.env
+.kaggle/
+*.egg-info/
+
+# Large model artifacts (GLiNER teacher 644MB) — not committed.
+ru_gliner_hybrid_v4/models/gliner-ru-pii-small/
+ru_gliner_hybrid_v4/artifacts/
+
+# Distilled student checkpoint IS committed (small, ~800KB).
+!artifacts/student-pii.pt
+artifacts/*
+!artifacts/student-pii.pt
