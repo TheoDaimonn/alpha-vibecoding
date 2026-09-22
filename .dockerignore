@@ -1,0 +1,16 @@
+.git
+.gitignore
+.DS_Store
+**/__pycache__
+**/.ipynb_checkpoints
+data/hybrid
+data/real
+data/redmadrobot
+data/supplement
+data/wolframko
+data/third_party
+scripts
+ds.md
+ds.pdf
+model_piinet
+Dockerfile
