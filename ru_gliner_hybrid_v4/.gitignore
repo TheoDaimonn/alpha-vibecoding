@@ -1,0 +1,9 @@
+__pycache__/
+.pytest_cache/
+.ipynb_checkpoints/
+.venv/
+.env
+.kaggle/
+artifacts/
+data/external/*/
+*.egg-info/

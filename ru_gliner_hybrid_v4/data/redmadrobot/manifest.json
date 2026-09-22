@@ -1,0 +1,14 @@
+{
+  "source": "redmadrobot-rnd/pii_train",
+  "source_url": "https://huggingface.co/datasets/redmadrobot-rnd/pii_train",
+  "revision": "1a74b9f108bf8c4a5f06c00243ad3bc5c01d6aa5",
+  "created_at": "2026-09-22T11:23:14.370809+00:00",
+  "license": "MIT according to the Hugging Face dataset card",
+  "provenance": "Russian production-log contexts with PII replaced before release, plus synthetic document-style rows and hard negatives",
+  "rows": 17137,
+  "rejected": {},
+  "sha256": {
+    "canonical": "c5b21e2ca410378ebffff5104cfe05c1c86359ad5f5b7a7c5a942255fa4ab173"
+  },
+  "important": "pii_benchmark is NOT used for training and remains held out"
+}

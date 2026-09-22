@@ -1,0 +1,57 @@
+{
+  "schema_version": "real-corpus-v2",
+  "created_at": "2026-09-22T11:23:12.942314+00:00",
+  "text_generation_used": false,
+  "synthetic_training_rows_expected": 0,
+  "enabled_sources": [
+    "nerel",
+    "factrueval"
+  ],
+  "factrueval_backend": "hf",
+  "resolved_hf_revisions": {
+    "nerel": "b8bbfeb80905e6d66dc06a47ec6e37b502ea6c69",
+    "factrueval_hf": "96349b9bd7536aac67f892f5cf36197cd49ea722"
+  },
+  "kaggle_factru_dataset": null,
+  "source_notes": {
+    "nerel": {
+      "name": "NEREL",
+      "url": "https://huggingface.co/datasets/iluvvatar/NEREL",
+      "provenance": "real Russian Wikinews articles",
+      "annotation": "manual nested entities + relations",
+      "license_note": "source Wikinews text CC BY 2.5; retain NEREL attribution and verify annotation terms for your deployment",
+      "use": "train/dev/test"
+    },
+    "factrueval": {
+      "name": "FactRuEval-2016",
+      "url": "https://github.com/dialogue-evaluation/factRuEval-2016",
+      "provenance": "real Russian news texts",
+      "annotation": "manual competition NER",
+      "license_note": "Kaggle mirror constantinwerner/multilingual-ner-dataset is CC0; preserve original FactRuEval attribution",
+      "use": "train/dev/test"
+    }
+  },
+  "dedupe": {
+    "normalized_exact_text_dropped": {
+      "test": 12,
+      "dev": 37,
+      "train": 198
+    },
+    "priority": [
+      "test",
+      "dev",
+      "train"
+    ]
+  },
+  "mapping_policy": {
+    "generic_DATE_is_not_DOB": true,
+    "generic_location_is_not_private_address": true,
+    "generic_ORG_is_not_passport_issuer": true,
+    "nationality_is_not_citizenship": true,
+    "NEREL_birth_fields_require_explicit_relations": [
+      "DATE_OF_BIRTH",
+      "PLACE_OF_BIRTH"
+    ]
+  },
+  "structured_pii_policy": "passport/card/CVV/PIN/INN/phone/email/document formats are intentionally delegated to deterministic rules unless an approved de-identified corpus is explicitly added"
+}
