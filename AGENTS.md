@@ -111,9 +111,31 @@
 | `scripts/` | конвейер данных rubert-трека: `public_persons.py`, `make_public_negatives.py`, `relabel_public_persons.py`, `jsonl_to_csv.py`, `integrate_wolframko.py`, `build_train_notebook.py` |
 | `scripts/kaggle_*.py`, `scripts/push_kaggle_*.sh` | обучение GLiNER/student на Kaggle 2xT4 (GLiNER-трек) |
 | `src/` | сервис: FastAPI `/process` (`api`), worker + Redis + RabbitMQ (`core`), детекторы rules/gliner/hybrid/student (`models`) |
+| `mirror/` | сервис-зеркало `/process` для наблюдения за трафиком: эхо payload, эмуляция идемпотентности по `payload_id`, лог всех тел запросов в `logs/requests.log` (JSONL); свой Dockerfile (порт 8010, `LOG_PATH` для volume) |
 | `ru_gliner_hybrid_v4/` | GLiNER-проект: пакет `ru_pii`, модели base-small и gliner-ru-pii-small (веса через LFS), notebooks, configs, reports, tests |
 | `artifacts/student-pii.pt` | дистиллированный student-детектор (GLiNER-трек) |
 | корневые `Dockerfile`, `requirements.txt`, `docker-compose.yml` | **runtime-образ сервиса** (не обучения): python:3.10-slim, копирует src, ru_pii, gliner-модель, student-чекпоинт |
+
+## Сервис-зеркало (mirror/)
+
+Заглушка контракта `/process` для наблюдения за реальным трафиком проверяющей системы.
+Не содержит логики маскирования: эхо payload, повторный `payload_id` → возврат сохранённого
+исходника (эмуляция демаскирования в памяти процесса). Каждое тело запроса пишется в JSONL
+`mirror/logs/requests.log` (`ts`, `payload_id`, `payload`) — запись асинхронная
+(`asyncio.to_thread` + `asyncio.Lock`), event loop не блокируется.
+
+Запуск локально: `python3 -m uvicorn mirror.app:app --host 0.0.0.0 --port 8010`
+(env: `PORT` не используется uvicorn-CLI, порт задаётся флагом; `LOG_PATH` — путь к логу).
+
+Docker: `docker build -t pii-mirror -f mirror/Dockerfile .`; запуск с volume для логов:
+
+```bash
+docker run -d --rm --name pii-mirror -p 8010:8010 --user $(id -u):$(id -g) \
+  -v $(pwd)/mirror/logs:/app/logs -e LOG_PATH=/app/logs/requests.log pii-mirror
+```
+
+(контейнер работает от `nobody`, volume монтируется с `--user` хост-пользователя для прав записи;
+базовый образ `python:3.12-slim` — 3.10-slim недоступен из-за таймаутов registry).
 
 ## Окружение обучения (train/)
 

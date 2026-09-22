@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
-"""Add PUBLIC_PERSON twins to classic public figures in data/hybrid.
+"""Strip famous public figures from PERSON annotations in data/hybrid.
 
 Famous historical/cultural figures (writers, scientists, composers, painters,
 pre-revolutionary statesmen, cosmonauts) are annotated as plain PERSON in
-factrueval2016/nerel news corpora, which contradicts the hackathon TZ (a
-public figure mention is not personal data). This script adds a PUBLIC_PERSON
-twin span for every PERSON span whose words match a curated list of famous
-surnames (stem + case-suffix matching), updates hybrid/manifest.json counts,
-and prints a report. Modern politicians are deliberately not touched.
+factrueval2016/nerel news corpora. Per the hackathon TZ a public figure
+mention is not personal data, so those spans must not be masked. This script
+removes both the original PERSON span and any PUBLIC_PERSON twin (added by
+an earlier revision of this pipeline) for every span whose words match a
+curated list of famous surnames (stem + case-suffix matching). It also
+removes PUBLIC_ADDRESS bank-branch spans together with entities nested
+inside them (bank branch addresses are not personal data either). Updates
+hybrid/manifest.json counts and prints a report. Modern politicians are
+deliberately not touched. Idempotent: a second run removes nothing.
 """
 
 from __future__ import annotations
@@ -37,9 +41,9 @@ def match_famous(text_value: str, stems: dict[str, str]) -> str | None:
     return None
 
 
-def relabel_split(path: Path, stems: dict[str, str], report: dict) -> int:
+def strip_split(path: Path, stems: dict[str, str], report: dict) -> int:
     records = []
-    added = 0
+    removed = 0
     with path.open(encoding="utf-8") as handle:
         for line in handle:
             line = line.strip()
@@ -47,35 +51,44 @@ def relabel_split(path: Path, stems: dict[str, str], report: dict) -> int:
                 continue
             record = json.loads(line)
             text = record["text"]
-            entities = record["entities"]
-            has_public = {(e["start"], e["end"]) for e in entities if e["label"] == "PUBLIC_PERSON"}
-            for entity in entities:
-                if entity["label"] != "PERSON":
+            public_addr = [
+                (e["start"], e["end"])
+                for e in record["entities"]
+                if e["label"] == "PUBLIC_ADDRESS"
+            ]
+            kept_entities = []
+            for entity in record["entities"]:
+                if entity["label"] == "PUBLIC_PERSON":
+                    removed += 1
+                    report[match_famous(
+                        entity.get("text", text[entity["start"]:entity["end"]]), stems
+                    ) or "?"] += 1
                     continue
-                if (entity["start"], entity["end"]) in has_public:
+                if entity["label"] == "PUBLIC_ADDRESS":
+                    removed += 1
                     continue
-                surname = match_famous(entity.get("text", text[entity["start"]:entity["end"]]), stems)
-                if surname is None:
+                if any(ps <= entity["start"] and entity["end"] <= pe for ps, pe in public_addr):
+                    removed += 1
                     continue
-                entities.append({
-                    "start": entity["start"],
-                    "end": entity["end"],
-                    "label": "PUBLIC_PERSON",
-                    "text": entity["text"],
-                })
-                has_public.add((entity["start"], entity["end"]))
-                added += 1
-                report[surname] += 1
-                if added <= 10:
-                    report.setdefault("examples", []).append(
-                        (path.name, text[entity["start"]:entity["end"]], text[:100])
+                if entity["label"] == "PERSON":
+                    surname = match_famous(
+                        entity.get("text", text[entity["start"]:entity["end"]]), stems
                     )
-            entities.sort(key=lambda e: (e["start"], e["end"]))
+                    if surname is not None:
+                        removed += 1
+                        report[surname] += 1
+                        continue
+                kept_entities.append(entity)
+            record["entities"] = kept_entities
+            if public_addr:
+                record["annotated_labels"] = sorted(
+                    set(record.get("annotated_labels") or []) - {"PUBLIC_ADDRESS"}
+                )
             records.append(record)
     with path.open("w", encoding="utf-8") as handle:
         for record in records:
             handle.write(json.dumps(record, ensure_ascii=False) + "\n")
-    return added
+    return removed
 
 
 def update_manifest(stats: dict) -> None:
@@ -90,10 +103,10 @@ def update_manifest(stats: dict) -> None:
             support = audit["task_required_support"]
             if "PERSON" in support:
                 support["PERSON"] = stats[split]["by_label"].get("PERSON", 0)
-            support["PUBLIC_PERSON"] = stats[split]["by_label"].get("PUBLIC_PERSON", 0)
+            support.pop("PUBLIC_PERSON", None)
     manifest["audit"]["public_person_relabel"] = {
-        "added_twins": {split: stats[split]["added"] for split in SPLITS},
-        "policy": "classic public figures only; modern politicians untouched",
+        "stripped_spans": {split: stats[split]["removed"] for split in SPLITS},
+        "policy": "famous public figures and bank branch addresses are not personal data; spans removed entirely (no PUBLIC_* labels)",
     }
     with manifest_path.open("w", encoding="utf-8") as handle:
         json.dump(manifest, handle, ensure_ascii=False, indent=2)
@@ -107,7 +120,7 @@ def main() -> int:
     stats = {}
     for split in SPLITS:
         path = HYBRID_DIR / f"{split}.jsonl"
-        added = relabel_split(path, stems, report)
+        removed = strip_split(path, stems, report)
         by_label: Counter = Counter()
         entities_total = 0
         with path.open(encoding="utf-8") as handle:
@@ -119,21 +132,16 @@ def main() -> int:
                 entities_total += len(record["entities"])
                 by_label.update(e["label"] for e in record["entities"])
         stats[split] = {
-            "added": added,
+            "removed": removed,
             "entities": entities_total,
             "by_label": dict(sorted(by_label.items())),
         }
-        print(f"{split}: +{added} PUBLIC_PERSON twins, {entities_total} entities total")
+        print(f"{split}: -{removed} famous-person spans, {entities_total} entities total")
 
     update_manifest(stats)
     print("\nby famous surname:")
     for surname, count in sorted(report.items()):
-        if surname != "examples":
-            print(f"  {surname}: {count}")
-    if "examples" in report:
-        print("\nfirst examples:")
-        for name, span, ctx in report["examples"][:5]:
-            print(f"  [{name}] {span!r} in: {ctx}...")
+        print(f"  {surname}: {count}")
     return 0
 
 

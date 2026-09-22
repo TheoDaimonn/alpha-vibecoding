@@ -9,3 +9,4 @@ datasets>=3.5
 gliner[training]==0.2.29
 scikit-learn==1.9.1
 pyarrow>=15,<25
+tqdm>=4.66

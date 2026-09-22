@@ -4,10 +4,11 @@
 Reads ``data/hybrid/{train,dev,test}.jsonl`` and writes ``data/csv/{split}.csv``
 with one row per text and character-offset entities serialized as compact JSON.
 
-Only hackathon-required PII labels (plus PUBLIC_PERSON / PUBLIC_ADDRESS
-context negatives) are kept. Rows whose entities are all filtered out stay in
-the output as hard negatives. Validation fails loudly on offset mismatches,
-duplicate ids, split inconsistencies, or crossing (non-nested) spans.
+Only hackathon-required PII labels are kept. Famous public figures and bank
+branch addresses are hard negatives and carry no spans. Rows whose entities
+are all filtered out stay in the output as hard negatives. Validation fails
+loudly on offset mismatches, duplicate ids, split inconsistencies, or
+crossing (non-nested) spans.
 """
 
 from __future__ import annotations
@@ -49,8 +50,6 @@ ALLOWED_LABELS = frozenset(
         "PIN",
         "POSTAL_CODE",
         "STREET",
-        "PUBLIC_ADDRESS",
-        "PUBLIC_PERSON",
     }
 )
 

@@ -19,8 +19,8 @@ md(
     """
 # Fine-tune rubert-tiny2 — детектор персональных данных
 
-Обучает модель-детектор для задачи хакатона из `Hackathon task.md`: находит спаны 24 типов ПД
-плюс `PUBLIC_PERSON` / `PUBLIC_ADDRESS` (публичные персоны и адреса — не маскируются).
+Обучает модель-детектор для задачи хакатона из `Hackathon task.md`: находит спаны 24 типов ПД.
+Публичные персоны и адреса отделений банков — не ПД, в данных это чистые негативы (без спанов).
 Маскирование и демаскирование — детерминированная логика сервиса поверх детектора,
 в notebook не входят.
 
@@ -31,10 +31,10 @@ max_pos 2048). Выход модели: список `(start, end, label)` — �
 
 1. Setup, конфиг, загрузка CSV из `data/csv/`
 2. EDA: длины, распределения меток
-3. BIO-теггинг с приоритетами: `PUBLIC_*` побеждают всё (не маскируем), `BIRTH_PLACE` > близнецов `CITY/COUNTRY`, innermost-wins (`CITY/STREET/HOUSE` вместо контейнера `ADDRESS`)
+3. BIO-теггинг с приоритетами: `BIRTH_PLACE` > близнецов `CITY/COUNTRY`, innermost-wins (`CITY/STREET/HOUSE` вместо контейнера `ADDRESS`)
 4. Датасет: токенизация с overflow (max_len 1024, stride 128), class weights
 5. Инференс: чанки → голосование по токенам → BIO-декод → char-спаны
-6. Метрики детекции: span-F1 (micro/macro/per-label), char-coverage P/R/F1, FP на публичных
+6. Метрики детекции: span-F1 (micro/macro/per-label), char-coverage P/R/F1
 7. Обучение: AdamW lr=3e-4, warmup 10% + cosine, bs=32, до 10 эпох, лучший чекпоинт по dev macro span-F1
 8. Валидация на test + анализ ошибок
 9. Артефакты: `model_piinet/` + ONNX int8 для CPU-сервиса
@@ -58,8 +58,6 @@ md("## Setup")
 
 code(
     r"""
-%pip install -q onnx onnxruntime
-
 import json
 import math
 import os
@@ -71,6 +69,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import torch
+from tqdm.auto import tqdm
 import transformers
 from transformers import AutoModelForTokenClassification, AutoTokenizer
 
@@ -107,7 +106,7 @@ DATA_DIR = find_data_dir()
 OUT_DIR = Path(os.environ.get("PII_OUT_DIR", str(DATA_DIR.parent / "model_piinet")))
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
-MODEL_NAME = os.environ.get("PII_MODEL_NAME", "cointegrated/rubert-tiny2")
+MODEL_NAME = os.environ.get("PII_MODEL_NAME", "models/rubert-tiny2")
 MAX_LEN = 1024
 STRIDE = 128
 
@@ -118,8 +117,7 @@ PII_LABELS = [
     "PASSPORT_ISSUER", "PASSPORT_ISSUE_DATE", "PASSPORT_NUMBER", "PASSPORT_SERIES",
     "PERSON", "PHONE", "PIN", "POSTAL_CODE", "STREET",
 ]
-PUBLIC_LABELS = ["PUBLIC_PERSON", "PUBLIC_ADDRESS"]
-LABELS = PII_LABELS + PUBLIC_LABELS
+LABELS = PII_LABELS
 
 TAGS = ["O"] + [f"{p}-{lab}" for lab in LABELS for p in ("B", "I")]
 TAG2ID = {t: i for i, t in enumerate(TAGS)}
@@ -130,8 +128,8 @@ HP = {
     "lr": 3e-4,
     "epochs": 10,
     "patience": 3,
-    "batch_size": 32,
-    "eval_batch_size": 64,
+    "batch_size": 128,
+    "eval_batch_size": 256,
     "weight_decay": 0.01,
     "warmup_frac": 0.1,
     "grad_clip": 1.0,
@@ -217,15 +215,15 @@ md(
     """
 ## BIO-теггинг
 
-Приоритет метки на токен при вложенности: `PUBLIC_*` (не персональные — не маскируем) → `BIRTH_PLACE`
-(близнецы с `CITY/COUNTRY`) → innermost-wins (`CITY/STREET/HOUSE` вместо контейнера `ADDRESS`).
+Приоритет метки на токен при вложенности: `BIRTH_PLACE` (близнецы с `CITY/COUNTRY`)
+→ innermost-wins (`CITY/STREET/HOUSE` вместо контейнера `ADDRESS`).
 Контейнер `ADDRESS` в данных всегда полностью выводится из своих частей.
 """
 )
 
 code(
     r"""
-PRIORITY = {"PUBLIC_PERSON": 0, "PUBLIC_ADDRESS": 0, "BIRTH_PLACE": 1}
+PRIORITY = {"BIRTH_PLACE": 1}
 
 
 def span_priority(ent):
@@ -288,7 +286,6 @@ def show_canonical(rows, wanted):
     print(f"no rows with {wanted}")
 
 
-show_canonical(train_rows, "PUBLIC_PERSON")
 show_canonical(train_rows, "ADDRESS")
 show_canonical(train_rows, "BIRTH_PLACE")
 """
@@ -296,10 +293,11 @@ show_canonical(train_rows, "BIRTH_PLACE")
 
 md(
     """
-## Маскируемые спаны
+    ## Маскируемые спаны
 
-Отображение детекции → то, что попадёт под маскирование в сервисе:
-выбрасываем `PUBLIC_*` и всё, что лежит внутри них.
+    Отображение детекции → то, что попадёт под маскирование в сервисе:
+    все детектированные спаны (публичные персоны и адреса отделений — не ПД,
+    в разметке отсутствуют, модель должна их пропускать).
 """
 )
 
@@ -307,26 +305,22 @@ code(
     r"""
 def maskable_spans(spans):
     spans = sorted(spans, key=lambda x: (x[0], x[1]))
-    public = [sp for sp in spans if sp[2] in PUBLIC_LABELS]
     out = []
     for s, e, lab in spans:
-        if lab in PUBLIC_LABELS:
-            continue
-        if any(ps <= s and e <= pe for ps, pe, _ in public):
-            continue
         if out and s < out[-1][1]:
             continue
         out.append((s, e, lab))
     return out
 
 
+shown = 0
 for r in train_rows:
     gold = canonical_gold_spans(r["text"], r["entities"])
-    if any(sp[2] in PUBLIC_LABELS for sp in gold):
+    if gold and shown < 3:
+        shown += 1
         print("TEXT    :", r["text"][:200])
         print("DETECTED:", [(r["text"][s:e], lab) for s, e, lab in gold])
         print("MASKABLE:", [(r["text"][s:e], lab) for s, e, lab in maskable_spans(gold)])
-        break
 """
 )
 
@@ -508,19 +502,6 @@ def text_char_f1(gold, pred):
     p = inter / len(pp) if pp else 1.0
     r = inter / len(gp) if gp else 1.0
     return 2 * p * r / (p + r) if p + r else 0.0
-
-
-def public_fp_stats(gold_lists, pred_lists):
-    n_public = n_fp = 0
-    for gold, pred in zip(gold_lists, pred_lists):
-        pubs = [sp for sp in gold if sp[2] in PUBLIC_LABELS]
-        if not pubs:
-            continue
-        n_public += 1
-        mask_pred = [sp for sp in pred if sp[2] not in PUBLIC_LABELS]
-        if any(ps < e and pe > s for s, e, _ in mask_pred for ps, pe, _ in pubs):
-            n_fp += 1
-    return n_fp, n_public
 """
 )
 
@@ -561,11 +542,28 @@ def lr_lambda(step):
 scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
 loss_fn = torch.nn.CrossEntropyLoss(weight=class_weights.to(DEVICE), ignore_index=-100)
 
+
+@torch.no_grad()
+def eval_loss(model, samples, batch_size=None):
+    was_training = model.training
+    model.eval()
+    bs = batch_size or HP["eval_batch_size"]
+    order = sorted(range(len(samples)), key=lambda i: samples[i]["n_tokens"])
+    losses = []
+    for i in range(0, len(order), bs):
+        batch = collate([samples[j] for j in order[i:i + bs]])
+        input_ids, attention_mask, labels = (t.to(DEVICE) for t in batch)
+        logits = model(input_ids=input_ids, attention_mask=attention_mask).logits
+        losses.append(loss_fn(logits.reshape(-1, N_CLASSES), labels.reshape(-1)).item())
+    if was_training:
+        model.train()
+    return float(np.mean(losses))
+
 dev_texts = [r["text"] for r in dev_rows]
 gold_dev = [canonical_gold_spans(r["text"], r["entities"]) for r in dev_rows]
 
 history = []
-best_f1 = -1.0
+best_val_loss = float("inf")
 best_epoch = 0
 t_start = time.time()
 
@@ -573,7 +571,8 @@ for epoch in range(1, HP["epochs"] + 1):
     model.train()
     t0 = time.time()
     losses = []
-    for batch_idx in epoch_batches(train_samples, HP["batch_size"], train_gen):
+    epoch_bar = tqdm(epoch_batches(train_samples, HP["batch_size"], train_gen), total=steps_per_epoch, desc=f"epoch {epoch}", leave=False)
+    for batch_idx in epoch_bar:
         batch = collate([train_samples[i] for i in batch_idx])
         input_ids, attention_mask, labels = (t.to(DEVICE) for t in batch)
         logits = model(input_ids=input_ids, attention_mask=attention_mask).logits
@@ -584,31 +583,76 @@ for epoch in range(1, HP["epochs"] + 1):
         scheduler.step()
         optimizer.zero_grad()
         losses.append(loss.item())
+        epoch_bar.set_postfix(loss=f"{np.mean(losses[-50:]):.4f}")
+    train_loss = float(np.mean(losses))
+    val_loss = eval_loss(model, dev_samples)
     pred_dev = predict_texts(model, dev_texts)
     micro_f1, macro_f1, _ = span_prf(gold_dev, pred_dev)
     marker = ""
-    if macro_f1 > best_f1:
-        best_f1 = macro_f1
+    if val_loss < best_val_loss:
+        best_val_loss = val_loss
         best_epoch = epoch
         torch.save(model.state_dict(), OUT_DIR / "best.pt")
         marker = " <= best"
     history.append({
         "epoch": epoch,
-        "loss": round(float(np.mean(losses)), 4),
+        "loss": round(train_loss, 4),
+        "val_loss": round(val_loss, 4),
         "dev_micro_f1": round(micro_f1, 4),
         "dev_macro_f1": round(macro_f1, 4),
         "sec": round(time.time() - t0, 1),
     })
-    print(f"epoch {epoch}: loss={np.mean(losses):.4f} dev_micro={micro_f1:.4f} dev_macro={macro_f1:.4f}{marker}")
+    print(f"epoch {epoch}: loss={train_loss:.4f} val_loss={val_loss:.4f} dev_micro={micro_f1:.4f} dev_macro={macro_f1:.4f}{marker}")
     if epoch - best_epoch >= HP["patience"]:
-        print(f"early stop: no improvement for {HP['patience']} epochs")
+        print(f"early stop: val_loss not improving for {HP['patience']} epochs")
         break
 
-print(f"total {time.time() - t_start:.0f}s, best epoch {best_epoch} (dev_macro_f1={best_f1:.4f})")
+print(f"total {time.time() - t_start:.0f}s, best epoch {best_epoch} (val_loss={best_val_loss:.4f})")
 model.load_state_dict(torch.load(OUT_DIR / "best.pt", map_location=DEVICE))
 model.eval()
 print("best checkpoint loaded")
 print(pd.DataFrame(history).to_string(index=False))
+"""
+)
+
+md("## Примеры глазами (5 шт. по мотивам ТЗ)")
+
+code(
+    r"""
+def render_spans(text, spans):
+    out, cursor = [], 0
+    for s, e, lab in sorted(spans):
+        if s < cursor:
+            continue
+        out.append(text[cursor:s])
+        out.append(f"[{lab}: {text[s:e]}]")
+        cursor = e
+    out.append(text[cursor:])
+    return "".join(out)
+
+
+SMOKE_EXAMPLES = [
+    # 1. Классика ТЗ: ФИО + дата рождения + место рождения + паспорт с разделяющими словами
+    "Клиент Иванов Иван Иванович, дата рождения 15.03.1985, место рождения г. Казань, "
+    "паспорт серия 4509 номер 123456, выдан 20.05.2010.",
+    # 2. Публичная персона и адрес отделения банка — НЕ ПД; рядом реальные ПД
+    "Как писал Пушкин, «не дай вам бог сойти с ума». Пишите на почту ivanova.o@mail.ru "
+    "или звоните +7 916 123-45-67, отделение: Москва, ул. Тверская, 7.",
+    # 3. Карта целиком: номер, имя держателя, CVV, ПИН (вариации формата)
+    "Оплата картой 4276 5500 1234 5678, срок до 11/27, держатель IVAN IVANOV, cvv 123, пин-код 9876.",
+    # 4. Водительское удостоверение + орган выдачи + код подразделения, дата текстом
+    "Водительское удостоверение 99 22 345678, выдано ГИБДД УМВД России по г. Москве, "
+    "код подразделения 770-123, дата выдачи пятое сентября две тысячи двадцатого года.",
+    # 5. ИНН, гражданство, дата в обратном порядке гггг.дд.мм, верхний регистр
+    "ГРАЖДАНСТВО: РОССИЙСКАЯ ФЕДЕРАЦИЯ, ИНН 7712345678, дата регистрации 2020.05.09, "
+    "проживает: Санкт-Петербург, Невский проспект, д. 100, кв. 5, индекс 191186.",
+]
+
+for i, text in enumerate(SMOKE_EXAMPLES, 1):
+    pred = predict_texts(model, [text])[0]
+    print(f"--- пример {i} ---")
+    print(render_spans(text, pred))
+    print()
 """
 )
 
@@ -622,12 +666,10 @@ pred_test = predict_texts(model, test_texts)
 
 micro_f1, macro_f1, per_label = span_prf(gold_test, pred_test)
 cov_p, cov_r, cov_f = coverage_stats(gold_test, pred_test)
-pub_fp, pub_n = public_fp_stats(gold_test, pred_test)
 text_scores = [text_char_f1(g, p) for g, p in zip(gold_test, pred_test)]
 
 print(f"span-F1: micro={micro_f1:.4f} macro={macro_f1:.4f}")
 print(f"char-coverage: precision={cov_p:.4f} recall={cov_r:.4f} f1={cov_f:.4f}")
-print(f"public FP: {pub_fp}/{pub_n} texts with gold PUBLIC_* got PII detected over it")
 print()
 print("Per-text char-F1:")
 print(pd.Series(text_scores).describe(percentiles=[0.05, 0.1, 0.5, 0.9]).round(4).to_string())
@@ -720,7 +762,6 @@ model_config = {
     "tags": TAGS,
     "max_len": MAX_LEN,
     "stride": STRIDE,
-    "public_labels": PUBLIC_LABELS,
 }
 (OUT_DIR / "model_config.json").write_text(json.dumps(model_config, ensure_ascii=False, indent=2), encoding="utf-8")
 print("saved model + tokenizer + config to", OUT_DIR)
