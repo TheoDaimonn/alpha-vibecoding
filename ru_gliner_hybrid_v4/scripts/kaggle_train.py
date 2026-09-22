@@ -10,6 +10,11 @@ import tarfile
 
 
 ROOT = Path(__file__).resolve().parent.parent
+# GLiNER 0.2.29's Trainer path is not safe with DataParallel when each batch
+# carries dynamic label mappings. Keep the Kaggle run on one visible T4 by
+# default; set KAGGLE_USE_ALL_GPUS=1 only for an explicit DDP-compatible fork.
+if os.environ.get("KAGGLE_USE_ALL_GPUS") != "1":
+    os.environ.setdefault("CUDA_VISIBLE_DEVICES", "0")
 output = Path(os.environ.get("KAGGLE_OUTPUT_DIR", "/kaggle/working/artifacts/gliner-ru-pii-small"))
 device = "cuda" if __import__("torch").cuda.is_available() else "cpu"
 

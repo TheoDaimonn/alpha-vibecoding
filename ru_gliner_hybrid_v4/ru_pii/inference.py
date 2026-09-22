@@ -84,6 +84,7 @@ class GLiNERBackend:
         self.model=model
         self.max_words=min(int(config.max_len),word_window)
         self.max_width=int(config.max_width)
+        self.max_types=int(getattr(config,"max_types",30))
         self.tokenizer=model.data_processor.transformer_tokenizer
         if not getattr(self.tokenizer, "is_fast", False):
             raise ValueError("a fast transformer tokenizer is required for budget validation")

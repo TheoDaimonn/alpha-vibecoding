@@ -177,9 +177,41 @@ def main() -> None:
             load["revision"] = revision
         model = GLiNER.from_pretrained(model_id, **load)
         # Stable explicit type inventory: never randomly turn unannotated classes into negatives.
-        model.config.max_types = len(LABELS)
+        # Keep the checkpoint's architectural type limit. Preparation splits
+        # records whose annotated label inventory is larger than this limit.
         model.config.random_drop = False
         model.config.shuffle_types = False
+
+        # GLiNER 0.2.29 emits out-of-range padding span indices near the end of
+        # short sequences. CPU tolerates these, but CUDA asserts in indexSelect.
+        original_collator_factory = model._create_data_collator
+
+        class SafeCollator:
+            def __init__(self, delegate):
+                self.delegate = delegate
+
+            def __call__(self, batch, **call_kwargs):
+                model_batch = self.delegate(batch, **call_kwargs)
+                span_idx = model_batch.get("span_idx")
+                span_mask = model_batch.get("span_mask")
+                text_lengths = model_batch.get("text_lengths")
+                if span_idx is not None and span_mask is not None and text_lengths is not None:
+                    valid_ends = text_lengths.view(-1, 1).to(span_idx.device)
+                    invalid = span_idx[..., 1] >= valid_ends
+                    span_mask = span_mask & ~invalid
+                    safe_idx = span_idx.clone()
+                    safe_idx[..., 0].clamp_(min=0)
+                    safe_idx[..., 1].clamp_(min=0)
+                    safe_idx[..., 1] = torch.minimum(safe_idx[..., 1], valid_ends - 1)
+                    safe_idx[..., 0] = torch.minimum(safe_idx[..., 0], safe_idx[..., 1])
+                    model_batch["span_idx"] = safe_idx
+                    model_batch["span_mask"] = span_mask
+                return model_batch
+
+        def safe_collator_factory(**kwargs):
+            return SafeCollator(original_collator_factory(**kwargs))
+
+        model._create_data_collator = safe_collator_factory
         backend = GLiNERBackend(
             model,
             subtoken_budget=cfg["subtoken_budget"],

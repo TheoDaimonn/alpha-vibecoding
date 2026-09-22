@@ -7,14 +7,20 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 : "${KAGGLE_API_TOKEN:?Set KAGGLE_API_TOKEN in the shell; it is never stored by this script}"
-: "${KAGGLE_USERNAME:?Set KAGGLE_USERNAME to your Kaggle username}"
+KAGGLE_USERNAME="${KAGGLE_USERNAME:-theodaimones888}"
 
 KERNEL_SLUG="${KERNEL_SLUG:-ru-gliner-pii-2xt4}"
 DOWNLOAD_DIR="${DOWNLOAD_DIR:-artifacts/kaggle-download}"
 EXTRACT_DIR="${EXTRACT_DIR:-artifacts/gliner-ru-pii-kaggle}"
 KERNEL_ID="${KAGGLE_USERNAME}/${KERNEL_SLUG}"
 WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/ru-gliner-kaggle-output.XXXXXX")"
-trap 'rm -rf "$WORK_DIR"' EXIT
+AUTH_DIR="$(mktemp -d "${TMPDIR:-/tmp}/ru-gliner-kaggle-auth.XXXXXX")"
+trap 'rm -rf "$WORK_DIR" "$AUTH_DIR"' EXIT
+
+# Support older Kaggle CLI versions which only read legacy kaggle.json.
+umask 077
+printf '{"username":"%s","key":"%s"}\n' "$KAGGLE_USERNAME" "$KAGGLE_API_TOKEN" > "$AUTH_DIR/kaggle.json"
+export KAGGLE_CONFIG_DIR="$AUTH_DIR"
 
 command -v kaggle >/dev/null 2>&1 || {
     echo "Kaggle CLI is required. Install it with: python3 -m pip install kaggle" >&2

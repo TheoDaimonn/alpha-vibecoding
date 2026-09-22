@@ -14,6 +14,17 @@ def prepare_records(records: list[dict[str,Any]], backend: Backend, *, overlap: 
         if row.get("split") in {"test","challenge","benchmark"}:
             raise ValueError("held-out records are forbidden in training preparation")
         codes=row["annotated_labels"]
+        max_types=getattr(backend,"max_types",30)
+        if len(codes)>max_types:
+            for start in range(0,len(codes),max_types):
+                label_chunk=set(codes[start:start+max_types])
+                chunk=dict(row)
+                chunk["annotated_labels"]=sorted(label_chunk)
+                chunk["entities"]=[e for e in row["entities"] if e["label"] in label_chunk]
+                chunk_prepared,chunk_stats=prepare_records([chunk],backend,overlap=overlap)
+                prepared.extend(chunk_prepared)
+                stats.update(chunk_stats)
+            continue
         prompts=[LABELS[k] for k in codes]
         tm=backend.tokenize(row["text"],prompts)
         starts={s:i for i,s in enumerate(tm.starts)}
