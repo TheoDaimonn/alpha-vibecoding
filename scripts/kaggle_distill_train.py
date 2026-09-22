@@ -65,11 +65,11 @@ with train_path.open(encoding="utf-8") as fin, expanded.open("w", encoding="utf-
             preds = teacher.predict_batch(texts)
             for r, ents in zip(rows, preds):
                 gold = {(e["start"], e["end"], e["label"]) for e in r.get("entities", [])}
-                merged = list(gold)
-                for e in ents:
-                    key = (e.start, e.end, e.label)
+                merged = [{"start": s, "end": e, "label": l, "text": r["text"][s:e], "privacy": "personal"} for s, e, l in gold]
+                for ent in ents:
+                    key = (ent.start, ent.end, ent.label)
                     if key not in gold:
-                        merged.append({"start": e.start, "end": e.end, "label": e.label, "text": e.text, "privacy": "personal"})
+                        merged.append({"start": ent.start, "end": ent.end, "label": ent.label, "text": ent.text, "privacy": "personal"})
                 r["entities"] = merged
                 fout.write(json.dumps(r, ensure_ascii=False) + "\n")
             texts = []
@@ -78,11 +78,11 @@ with train_path.open(encoding="utf-8") as fin, expanded.open("w", encoding="utf-
         preds = teacher.predict_batch(texts)
         for r, ents in zip(rows, preds):
             gold = {(e["start"], e["end"], e["label"]) for e in r.get("entities", [])}
-            merged = list(gold)
-            for e in ents:
-                key = (e.start, e.end, e.label)
+            merged = [{"start": s, "end": e, "label": l, "text": r["text"][s:e], "privacy": "personal"} for s, e, l in gold]
+            for ent in ents:
+                key = (ent.start, ent.end, ent.label)
                 if key not in gold:
-                    merged.append({"start": e.start, "end": e.end, "label": e.label, "text": e.text, "privacy": "personal"})
+                    merged.append({"start": ent.start, "end": ent.end, "label": ent.label, "text": ent.text, "privacy": "personal"})
             r["entities"] = merged
             fout.write(json.dumps(r, ensure_ascii=False) + "\n")
 print(f"Expanded corpus written: {expanded}", flush=True)
