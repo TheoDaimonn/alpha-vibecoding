@@ -6,6 +6,7 @@ Switching engines is a one-line config change (``DETECTOR`` env var):
     DETECTOR=student   -> distilled BiLSTM-CRF (fast, needs trained checkpoint)
     DETECTOR=rules     -> rule matcher only (fastest, pattern types only)
     DETECTOR=hybrid    -> rules for pattern types + model for semantic types
+    DETECTOR=rubert_onnx -> fine-tuned rubert-tiny2 BIO tagger (ONNX int8)
 """
 from __future__ import annotations
 
@@ -15,6 +16,7 @@ from .gliner import GLiNERDetector
 from .hybrid import HybridDetector
 from .postprocess import PostProcessedDetector
 from .rules import RuleDetector
+from .rubert_onnx_detector import RubertOnnxDetector
 from .student_detector import StudentDetector
 from .transformer_detector import TransformerDetector
 
@@ -32,6 +34,11 @@ def create_detector(detector: str | None = None) -> Detector:
         base = StudentDetector(settings.student_model_path, device=settings.device)
     elif kind == "transformer":
         base = TransformerDetector(settings.transformer_model_path, device=settings.device)
+    elif kind == "rubert_onnx":
+        base = RubertOnnxDetector(
+            settings.rubert_model_path,
+            batch_size=settings.model_batch_size,
+        )
     elif kind == "rules":
         base = RuleDetector()
     elif kind == "hybrid":

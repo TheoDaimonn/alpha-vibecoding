@@ -12,6 +12,8 @@
 !ru_gliner_hybrid_v4/models/gliner-ru-pii-small/**
 !artifacts/
 !artifacts/student-pii.pt
+!artifacts/rubert-tiny2-fine-tuning/
+!artifacts/rubert-tiny2-fine-tuning/**
 **/__pycache__/
 
 # Support the separate mirror image without including request logs.

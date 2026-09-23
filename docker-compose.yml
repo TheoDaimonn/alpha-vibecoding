@@ -28,8 +28,9 @@ services:
     command: ["python", "-m", "src.run_api"]
     environment:
       MODEL_PATH: /app/ru_gliner_hybrid_v4/models/gliner-ru-pii-small
-      DETECTOR: student
+      DETECTOR: "${DETECTOR:-student}"
       STUDENT_MODEL_PATH: /app/artifacts/student-pii.pt
+      RUBERT_MODEL_PATH: /app/artifacts/rubert-tiny2-fine-tuning
       CORRELATION_STORE: redis
       REDIS_URL: redis://redis:6379/0
       API_KEYS: "${API_KEYS:-}"

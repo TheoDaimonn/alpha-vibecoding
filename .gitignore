@@ -48,5 +48,10 @@ ru_gliner_hybrid_v4/data/redmadrobot/manifest.json
 # Keep the small committed student checkpoint despite the *.pt rule above.
 !artifacts/student-pii.pt
 
+# rubert-tiny2 ONNX int8 detector artifact: committed via Git LFS (see .gitattributes).
+!artifacts/rubert-tiny2-fine-tuning/
+!artifacts/rubert-tiny2-fine-tuning/**
+!artifacts/rubert-tiny2-fine-tuning/model_int8.onnx
+
 # Model weights in models/ ARE committed via Git LFS (see .gitattributes).
 !ru_gliner_hybrid_v4/models/**/*.safetensors

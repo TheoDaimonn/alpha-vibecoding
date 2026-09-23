@@ -24,6 +24,8 @@ COPY ru_gliner_hybrid_v4/ru_pii ./ru_gliner_hybrid_v4/ru_pii
 COPY ru_gliner_hybrid_v4/models/gliner-ru-pii-small ./ru_gliner_hybrid_v4/models/gliner-ru-pii-small
 # Distilled student checkpoint (fast detector).
 COPY artifacts/student-pii.pt ./artifacts/student-pii.pt
+# Fine-tuned rubert-tiny2 detector (ONNX int8 + tokenizer + config).
+COPY artifacts/rubert-tiny2-fine-tuning ./artifacts/rubert-tiny2-fine-tuning
 
 ENV PYTHONPATH=/app:/app/ru_gliner_hybrid_v4
 
