@@ -1,6 +1,7 @@
 """Canonical annotation schema. Character intervals are [start, end)."""
 from __future__ import annotations
-from dataclasses import dataclass, asdict
+
+from dataclasses import asdict, dataclass
 from typing import Any
 
 # Short English prompts intentionally stable across training and inference.

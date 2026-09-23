@@ -31,23 +31,34 @@ class MaskedSpan:
 
 
 def _valid_span(start: int, end: int, length: int) -> bool:
-    return 0 <= start < end <= length
+    return type(start) is int and type(end) is int and 0 <= start < end <= length
 
 
 def mask_text(text: str, entities: list[Entity]) -> tuple[str, list[MaskedSpan]]:
     """Return (masked_text, spans). Spans are sorted by start; offsets refer to
-    the original text. Masking is applied from the end so offsets stay valid."""
+    the original text. Invalid model offsets fail instead of leaking unmasked text."""
     spans: list[MaskedSpan] = []
     for e in entities:
         if not _valid_span(e.start, e.end, len(text)):
+            raise ValueError("invalid entity offsets")
+        if e.label in {"PUBLIC_PERSON", "PUBLIC_ADDRESS"}:
             continue
         spans.append(MaskedSpan(e.start, e.end, text[e.start:e.end], e.label))
     spans.sort(key=lambda s: s.start)
-    chars = list(text)
-    for s in spans:
-        for i in range(s.start, s.end):
-            chars[i] = MASK_CHAR
-    return "".join(chars), spans
+    # Merge intervals so nested/overlapping predictions do not multiply work.
+    intervals: list[tuple[int, int]] = []
+    for span in spans:
+        if intervals and span.start <= intervals[-1][1]:
+            intervals[-1] = (intervals[-1][0], max(intervals[-1][1], span.end))
+        else:
+            intervals.append((span.start, span.end))
+    chunks = []
+    position = 0
+    for start, end in intervals:
+        chunks.extend((text[position:start], MASK_CHAR * (end - start)))
+        position = end
+    chunks.append(text[position:])
+    return "".join(chunks), spans
 
 
 def unmask_text(masked: str, spans: list[MaskedSpan]) -> str:
@@ -57,10 +68,15 @@ def unmask_text(masked: str, spans: list[MaskedSpan]) -> str:
     positions, the same offsets are valid in the masked string.
     """
     chars = list(masked)
+    restored: dict[int, str] = {}
     for s in sorted(spans, key=lambda s: s.start):
-        if not _valid_span(s.start, s.end, len(chars)):
-            continue
-        chars[s.start:s.end] = list(s.text)
+        if not _valid_span(s.start, s.end, len(chars)) or len(s.text) != s.end - s.start:
+            raise ValueError("invalid restoration span")
+        for offset, char in enumerate(s.text, s.start):
+            if offset in restored and restored[offset] != char:
+                raise ValueError("conflicting restoration spans")
+            restored[offset] = char
+            chars[offset] = char
     return "".join(chars)
 
 

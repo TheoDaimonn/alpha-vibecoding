@@ -1,7 +1,7 @@
 """Detector wrapper that applies public-figure/address post-processing."""
 from __future__ import annotations
 
-from typing import Sequence
+from collections.abc import Sequence
 
 from ru_pii.schema import Entity
 
@@ -20,8 +20,16 @@ class PostProcessedDetector:
     def name(self) -> str:
         return self._name
 
+    def validate_text(self, text: str) -> None:
+        validate = getattr(self.base, "validate_text", None)
+        if validate is not None:
+            validate(text)
+
     def predict(self, text: str) -> list[Entity]:
         return filter_public(text, self.base.predict(text))
 
     def predict_batch(self, texts: Sequence[str]) -> list[list[Entity]]:
-        return [filter_public(t, ents) for t, ents in zip(texts, self.base.predict_batch(list(texts)))]
+        results = self.base.predict_batch(list(texts))
+        if len(results) != len(texts):
+            raise ValueError("model returned an unexpected number of predictions")
+        return [filter_public(t, ents) for t, ents in zip(texts, results, strict=True)]

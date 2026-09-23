@@ -1,10 +1,10 @@
 """Keep an anonymous localhost.run tunnel connected and publish its current URL."""
 import os
-from pathlib import Path
 import re
 import signal
 import subprocess
 import threading
+from pathlib import Path
 
 URL_FILE = Path('/run/tunnel/public-url')
 STATE = Path('/state')

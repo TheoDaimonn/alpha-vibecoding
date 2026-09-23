@@ -30,6 +30,11 @@
   <h1>🛡️ PII Security Module — ручной тест</h1>
 
   <div class="card">
+    <label for="apiKey">API-ключ (если настроен на сервере)</label>
+    <input id="apiKey" type="password" autocomplete="off" placeholder="X-API-Key">
+  </div>
+
+  <div class="card">
     <div class="step">Шаг 1 — маскирование</div>
     <label>Исходный текст</label>
     <textarea id="input" placeholder="Введите текст с персональными данными...">Клиент Иванов Иван Иванович, email: ivanov@example.org, телефон +7 900 123-45-67, паспорт 4509 123456, ИНН 7707083893, карта 4276 1234 5678 9012</textarea>
@@ -74,6 +79,7 @@
 
 <script>
   let currentPid = null;
+  let busy = false;
 
   const PRESETS = {
     "ФИО + email + телефон": "Клиент Иванов Иван Иванович, email: ivanov@example.org, телефон +7 900 123-45-67",
@@ -88,13 +94,15 @@
   }
 
   async function doMask() {
+    if (busy) return;
     const payload = document.getElementById('input').value;
     if (!payload.trim()) { alert('Введите текст'); return; }
-    currentPid = 'manual-' + Date.now();
-    await call('/process', { payload, payload_id: currentPid }, 'Маскирование');
+    const newPid = 'manual-' + Array.from(crypto.getRandomValues(new Uint32Array(4)), n => n.toString(16)).join('-');
+    await call('/process', { payload, payload_id: newPid }, 'Маскирование');
   }
 
   async function doUnmask() {
+    if (busy) return;
     const payload = document.getElementById('unmaskInput').value;
     if (!payload.trim()) { alert('Вставьте маску в поле демаскирования'); return; }
     if (!currentPid) { alert('Сначала маскируйте'); return; }
@@ -111,6 +119,8 @@
   }
 
   async function call(url, body, label) {
+    busy = true;
+    document.querySelectorAll('button').forEach(button => button.disabled = true);
     const res = document.getElementById('result');
     const meta = document.getElementById('meta');
     res.className = 'result';
@@ -121,7 +131,7 @@
       const t0 = performance.now();
       const resp = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-API-Key': document.getElementById('apiKey').value },
         body: JSON.stringify(body)
       });
       const dt = ((performance.now() - t0) / 1000).toFixed(3);
@@ -134,12 +144,19 @@
       }
 
       res.textContent = data.result;
+      if (label === 'Маскирование') {
+        currentPid = body.payload_id;
+        document.getElementById('unmaskInput').value = data.result;
+      }
       meta.textContent = `${label} · ${dt}s · payload_id=${currentPid}`;
       document.getElementById('pid').textContent = currentPid;
       loadMetrics();
     } catch (e) {
       res.className = 'result err';
       res.textContent = 'Ошибка сети: ' + e.message;
+    } finally {
+      busy = false;
+      document.querySelectorAll('button').forEach(button => button.disabled = false);
     }
   }
 

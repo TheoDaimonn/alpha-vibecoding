@@ -1,6 +1,7 @@
 """Character-level student inference: raw text to entity spans."""
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 import torch
@@ -8,7 +9,6 @@ import torch
 from ru_pii.schema import Entity
 
 from ..batched import BatchedDetector
-
 from .model import BiLSTMCRF, char_id, tag_to_label
 
 
@@ -30,7 +30,7 @@ def tags_to_entities(text: str, tags: list[int]) -> list[Entity]:
             i += 1
             continue
         prefix, label = info
-        if prefix == "B":
+        if prefix in {"B", "I"}:
             start = i
             j = i + 1
             while j < n and tag_to_label(tags[j]) == ("I", label):
@@ -59,6 +59,8 @@ class StudentDetector(BatchedDetector):
     """Fast inference wrapper around the distilled BiLSTM-CRF."""
 
     def __init__(self, model: BiLSTMCRF, *, device: str = "cpu", max_len: int = 512) -> None:
+        if max_len < 1:
+            raise ValueError("max_len must be positive")
         self.model = model
         self.device = device
         self.max_len = max_len
@@ -66,13 +68,47 @@ class StudentDetector(BatchedDetector):
         self.model.eval()
 
     @classmethod
-    def from_pretrained(cls, path: str | Path, *, device: str = "cpu", max_len: int = 512) -> "StudentDetector":
+    def from_pretrained(cls, path: str | Path, *, device: str = "cpu", max_len: int = 512) -> StudentDetector:
         return cls(BiLSTMCRF.load(path), device=device, max_len=max_len)
 
     def _predict_nonempty(self, texts: list[str]) -> list[list[Entity]]:
-        chars, mask = collate(texts, self.max_len)
-        chars = chars.to(self.device)
-        mask = mask.to(self.device)
-        with torch.inference_mode():
-            paths = self.model.decode(chars, mask)
-        return [tags_to_entities(text, tags) for text, tags in zip(texts, paths)]
+        results: list[list[Entity]] = [[] for _ in texts]
+        step = max(1, self.max_len - min(128, self.max_len // 4))
+        pending: list[tuple[int, int, str]] = []
+
+        def flush() -> None:
+            chunks = [chunk for _, _, chunk in pending]
+            chars, mask = collate(chunks, self.max_len)
+            with torch.inference_mode():
+                paths = self.model.decode(chars.to(self.device), mask.to(self.device))
+            for (owner, offset, chunk), tags in zip(pending, paths, strict=True):
+                if len(tags) != len(chunk):
+                    raise ValueError("student returned an incomplete tag sequence")
+                results[owner].extend(
+                    replace(entity, start=offset + entity.start, end=offset + entity.end)
+                    for entity in tags_to_entities(chunk, tags)
+                )
+            pending.clear()
+
+        for owner, text in enumerate(texts):
+            for offset in range(0, len(text), step):
+                pending.append((owner, offset, text[offset:offset + self.max_len]))
+                if len(pending) == 16:
+                    flush()
+                if offset + self.max_len >= len(text):
+                    break
+        if pending:
+            flush()
+        # Merge overlapping predictions of the same type from adjacent windows.
+        merged_results = []
+        for text, entities in zip(texts, results, strict=True):
+            merged: list[Entity] = []
+            for entity in sorted(entities, key=lambda e: (e.label, e.start, e.end)):
+                if merged and merged[-1].label == entity.label and entity.start < merged[-1].end:
+                    previous = merged[-1]
+                    end = max(previous.end, entity.end)
+                    merged[-1] = replace(previous, end=end, text=text[previous.start:end])
+                else:
+                    merged.append(entity)
+            merged_results.append(sorted(merged, key=lambda e: (e.start, e.end, e.label)))
+        return merged_results

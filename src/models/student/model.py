@@ -15,12 +15,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 import torch
-import torch.nn as nn
+from torch import nn
 
 from ru_pii.schema import LABELS
+
+from ..artifacts import require_model_file
 
 # BIO tag scheme over the canonical labels.
 _LABEL_IDS = {label: i for i, label in enumerate(sorted(LABELS))}
@@ -100,7 +101,7 @@ class BiLSTMCRF(nn.Module):
     def decode(self, chars: torch.Tensor, mask: torch.Tensor) -> list[list[int]]:
         """Viterbi decoding. Returns a list of tag sequences (one per batch item)."""
         emissions = self._emissions(chars)
-        batch, seq, _ = emissions.shape
+        batch, _seq, _ = emissions.shape
         out: list[list[int]] = []
         for b in range(batch):
             length = int(mask[b].sum().item())
@@ -125,8 +126,8 @@ class BiLSTMCRF(nn.Module):
 
 
     @classmethod
-    def load(cls, path: str | Path) -> "BiLSTMCRF":
-        data = torch.load(Path(path), map_location="cpu")
+    def load(cls, path: str | Path) -> BiLSTMCRF:
+        data = torch.load(require_model_file(path), map_location="cpu", weights_only=True)
         cfg = StudentConfig(**data["config"])
         model = cls(cfg)
         model.load_state_dict(data["state_dict"])

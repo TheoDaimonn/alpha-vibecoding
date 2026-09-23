@@ -6,7 +6,8 @@ model. Swap the engine by changing the ``DETECTOR`` setting.
 """
 from __future__ import annotations
 
-from typing import Protocol, Sequence, runtime_checkable
+from collections.abc import Sequence
+from typing import Protocol, runtime_checkable
 
 from ru_pii.schema import Entity
 

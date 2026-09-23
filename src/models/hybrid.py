@@ -8,7 +8,7 @@ student). This keeps latency low while preserving quality on the hard types.
 """
 from __future__ import annotations
 
-from typing import Sequence
+from collections.abc import Sequence
 
 from ru_pii.schema import Entity
 
@@ -31,17 +31,24 @@ class HybridDetector:
     def __init__(self, model: Detector) -> None:
         self.model = model
 
+    def validate_text(self, text: str) -> None:
+        validate = getattr(self.model, "validate_text", None)
+        if validate is not None:
+            validate(text)
+
     def predict(self, text: str) -> list[Entity]:
         return self._merge(text, self.model.predict(text))
 
     def predict_batch(self, texts: Sequence[str]) -> list[list[Entity]]:
         model_results = self.model.predict_batch(list(texts))
-        return [self._merge(t, ents) for t, ents in zip(texts, model_results)]
+        if len(model_results) != len(texts):
+            raise ValueError("model returned an unexpected number of predictions")
+        return [self._merge(t, ents) for t, ents in zip(texts, model_results, strict=True)]
 
     def _merge(self, text: str, model_entities: list[Entity]) -> list[Entity]:
         rule_ents = [Entity(s, e, label, 1.0, text[s:e]) for s, e, label in rule_spans(text)]
         # Keep model entities that are not pattern types (avoid double counting).
-        kept = [e for e in model_entities if e.label not in RULE_LABELS]
+        kept = list(model_entities)  # Rules supplement model recall; they must not discard it.
         merged = rule_ents + kept
         merged.sort(key=lambda e: (e.start, e.end, e.label))
         return merged

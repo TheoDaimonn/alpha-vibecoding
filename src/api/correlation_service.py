@@ -10,20 +10,31 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from ..core.correlation import CorrelationStore, MemoryCorrelationStore, create_correlation_store
+from ..core.correlation import (
+    CorrelationStore,
+    MemoryCorrelationStore,
+    create_correlation_store,
+)
 
 
 class CorrelationService:
     """Async facade over a :class:`CorrelationStore`."""
 
     def __init__(self, store: CorrelationStore | None = None) -> None:
-        self._store = store or create_correlation_store()
+        self._store = store if store is not None else create_correlation_store()
 
     @property
     def store(self) -> CorrelationStore:
         return self._store
 
+    async def ping(self) -> bool:
+        if hasattr(self._store, "aping"):
+            return await self._store.aping()
+        return await self._run(self._store.ping)
+
     async def get(self, payload_id: str) -> dict[str, Any] | None:
+        if hasattr(self._store, "aget"):
+            return await self._store.aget(payload_id)
         return await self._run(self._store.get, payload_id)
 
     async def get_result(self, payload_id: str) -> str | None:

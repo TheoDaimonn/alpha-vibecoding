@@ -1,6 +1,7 @@
 """Service configuration loaded from environment variables."""
 from __future__ import annotations
 
+import math
 import os
 from dataclasses import dataclass, field
 
@@ -59,8 +60,26 @@ class Settings:
     # Post-process: filter public figures / public addresses (not PII).
     postprocess: bool = field(default_factory=lambda: _str("POSTPROCESS", "0") == "1")
 
+    worker_queue_size: int = field(default_factory=lambda: _int("WORKER_QUEUE_SIZE", 256))
+    worker_queue_chars: int = field(default_factory=lambda: _int("WORKER_QUEUE_CHARS", 4_000_000))
+
     # --- Auth (allowlist of consumer systems) ---
-    api_keys: tuple[str, ...] = field(default_factory=lambda: tuple(k for k in _str("API_KEYS", "").split(",") if k))
+    api_keys: tuple[str, ...] = field(default_factory=lambda: tuple(k.strip() for k in _str("API_KEYS", "").split(",") if k.strip()))
+
+    def __post_init__(self) -> None:
+        for name in ("port", "result_ttl_s", "model_batch_size", "worker_batch_size",
+                     "worker_threads", "worker_queue_size", "worker_queue_chars",
+                     "onnx_intra_threads", "onnx_inter_threads"):
+            if getattr(self, name) <= 0:
+                raise ValueError(f"{name} must be positive")
+        for name in ("request_timeout_s", "poll_interval_s", "worker_batch_timeout_s"):
+            value = getattr(self, name)
+            if not math.isfinite(value) or value < 0 or (name != "worker_batch_timeout_s" and value == 0):
+                raise ValueError(f"{name} has an invalid duration")
+        if self.port > 65535:
+            raise ValueError("port must be <= 65535")
+        if self.correlation_store not in {"memory", "redis"}:
+            raise ValueError("unknown correlation store backend")
 
 
 settings = Settings()

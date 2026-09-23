@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Sequence
+from collections.abc import Sequence
 
 from ru_pii.schema import Entity
 
@@ -25,7 +25,7 @@ class BatchedDetector(ABC):
         predictions = self._predict_nonempty([texts[i] for i in positions])
         if len(predictions) != len(positions):
             raise RuntimeError("detector returned an unexpected number of predictions")
-        for position, entities in zip(positions, predictions):
+        for position, entities in zip(positions, predictions, strict=True):
             results[position] = entities
         return results
 

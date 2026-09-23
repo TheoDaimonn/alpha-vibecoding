@@ -13,6 +13,10 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 
 def main() -> None:
     workers = int(os.getenv("API_WORKERS", "1"))
+    if workers < 1:
+        raise ValueError("API_WORKERS must be positive")
+    if workers > 1 and settings.correlation_store == "memory":
+        raise ValueError("multiple API workers require CORRELATION_STORE=redis")
     uvicorn.run(
         "src.api.main:app",
         host=settings.host,

@@ -10,14 +10,17 @@ returns tag logits ordered exactly like ``tags`` in ``model_config.json``.
 from __future__ import annotations
 
 import json
+import threading
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
 import numpy as np
 import onnxruntime as ort
 from transformers import AutoTokenizer
 
 from ru_pii.schema import Entity
+
+from ..artifacts import require_model_file
 
 O_TAG = "O"
 
@@ -26,7 +29,7 @@ def bio_decode(offsets: Sequence[tuple[int, int]], tag_ids: Sequence[int], tags:
     """Decode per-token tag ids into char spans (start, end, label)."""
     spans: list[tuple[int, int, str]] = []
     cur: tuple[int, int, str] | None = None
-    for (s, e), tid in zip(offsets, tag_ids):
+    for (s, e), tid in zip(offsets, tag_ids, strict=True):
         tag = tags[int(tid)]
         if tag == O_TAG:
             if cur is not None:
@@ -65,12 +68,14 @@ class RubertOnnxInference:
         inter_threads: int = 1,
     ) -> None:
         model_dir = Path(model_path)
+        model_file = require_model_file(model_dir / "model_int8.onnx")
         cfg = json.loads((model_dir / "model_config.json").read_text(encoding="utf-8"))
         self.tags: list[str] = list(cfg["tags"])
         self.public_labels: frozenset[str] = frozenset(cfg.get("public_labels", ()))
         self.max_len = int(cfg.get("max_len", 1024) if max_len is None else max_len)
         self.stride = int(stride if stride is not None else cfg.get("stride", 128))
         self.batch_size = int(batch_size)
+        self._tokenizer_lock = threading.Lock()
         self._tokenizer = AutoTokenizer.from_pretrained(model_dir, local_files_only=True)
         special_tokens = self._tokenizer.num_special_tokens_to_add(pair=False)
         model_config = json.loads((model_dir / "config.json").read_text(encoding="utf-8"))
@@ -87,7 +92,7 @@ class RubertOnnxInference:
         session_options.intra_op_num_threads = intra_threads
         session_options.inter_op_num_threads = inter_threads
         self._session = ort.InferenceSession(
-            str(model_dir / "model_int8.onnx"),
+            str(model_file),
             session_options,
             providers=["CPUExecutionProvider"],
         )
@@ -103,18 +108,19 @@ class RubertOnnxInference:
         texts = list(texts)
         if not texts:
             return []
-        enc = self._tokenizer(
-            texts,
-            return_offsets_mapping=True,
-            truncation=True,
-            max_length=self.max_len,
-            stride=self.stride,
-            return_overflowing_tokens=True,
-            return_attention_mask=True,
-        )
+        with self._tokenizer_lock:
+            enc = self._tokenizer(
+                texts,
+                return_offsets_mapping=True,
+                truncation=True,
+                max_length=self.max_len,
+                stride=self.stride,
+                return_overflowing_tokens=True,
+                return_attention_mask=True,
+            )
         owner = enc["overflow_to_sample_mapping"]
         n_chunks = len(enc["input_ids"])
-        votes: list[dict[tuple[int, int], tuple[int, float]]] = [dict() for _ in texts]
+        votes: list[dict[tuple[int, int], tuple[int, float]]] = [{} for _ in texts]
         order = sorted(range(n_chunks), key=lambda i: len(enc["input_ids"][i]))
         pad_id = self._tokenizer.pad_token_id
         if pad_id is None:
@@ -135,6 +141,10 @@ class RubertOnnxInference:
                     self._attention_mask_name: attention_mask,
                 },
             )[0]
+            if logits.shape != (len(idxs), width, len(self.tags)):
+                raise ValueError("ONNX output shape does not match tag configuration")
+            if not np.isfinite(logits).all():
+                raise ValueError("ONNX output contains non-finite values")
             probs = softmax(np.asarray(logits))
             conf = probs.max(axis=-1)
             pred = probs.argmax(axis=-1)
@@ -149,7 +159,7 @@ class RubertOnnxInference:
                     if cur is None or p > cur[1]:
                         votes[text_idx][key] = (int(pred[bi, k]), p)
         results: list[list[Entity]] = []
-        for text, vote in zip(texts, votes):
+        for text, vote in zip(texts, votes, strict=True):
             score_by_start = {s: p for (s, _e), (_tid, p) in vote.items()}
             entities: list[Entity] = []
             for s, e, label in bio_decode(sorted(vote), [vote[k][0] for k in sorted(vote)], self.tags):

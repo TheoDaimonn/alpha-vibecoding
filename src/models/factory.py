@@ -8,18 +8,20 @@ from ..core.config import Settings, settings
 from .base import Detector
 from .hybrid import HybridDetector
 from .postprocess import PostProcessedDetector
-from .rubert_onnx_detector import RubertOnnxDetector
 from .rules import RuleDetector
-from .student_detector import StudentDetector
 
 DetectorBuilder = Callable[[Settings], Detector]
 
 
 def _student(config: Settings) -> Detector:
+    from .student_detector import StudentDetector
+
     return StudentDetector(config.student_model_path, device=config.device)
 
 
 def _rubert_onnx(config: Settings) -> Detector:
+    from .rubert_onnx_detector import RubertOnnxDetector
+
     return RubertOnnxDetector(
         config.rubert_model_path, batch_size=config.model_batch_size,
         max_len=config.rubert_max_len, stride=config.rubert_stride,

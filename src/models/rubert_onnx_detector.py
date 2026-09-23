@@ -5,12 +5,13 @@ exported model directory (``model_int8.onnx`` + tokenizer + ``model_config.json`
 """
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
 from ru_pii.schema import Entity
 
 from .rubert.inference import RubertOnnxInference
+from .rules import supplement_emails
 
 
 class RubertOnnxDetector:
@@ -36,7 +37,9 @@ class RubertOnnxDetector:
         )
 
     def predict(self, text: str) -> list[Entity]:
-        return self._detector.predict(text)
+        return self.predict_batch([text])[0]
 
     def predict_batch(self, texts: Sequence[str]) -> list[list[Entity]]:
-        return self._detector.predict_batch(list(texts))
+        texts = list(texts)
+        predictions = self._detector.predict_batch(texts)
+        return [supplement_emails(text, entities) for text, entities in zip(texts, predictions, strict=True)]

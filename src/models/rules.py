@@ -10,7 +10,7 @@ All matchers are case-insensitive and return (start, end, label) spans.
 from __future__ import annotations
 
 import re
-from typing import Iterable
+from collections.abc import Iterable
 
 from ru_pii.schema import Entity
 
@@ -22,7 +22,7 @@ _PHONE = re.compile(
 _CARD = re.compile(r"(?<!\d)(?:\d[ -]?){13,19}(?!\d)")
 _CVV = re.compile(r"(?<!\d)\d{3}(?!\d)")
 _PIN = re.compile(r"(?<!\d)\d{4}(?!\d)")
-_INN = re.compile(r"(?<!\d)\d{10}(?!\d)|\d{12}(?!\d)")
+_INN = re.compile(r"(?<!\d)(?:\d{10}|\d{12})(?!\d)")
 _POSTAL = re.compile(r"(?<!\d)\d{6}(?!\d)")
 _IP = re.compile(r"(?<!\d)(?:\d{1,3}\.){3}\d{1,3}(?!\d)")
 _URL = re.compile(r"(?i)\b(?:https?://|www\.)[^\s<>\"']+")
@@ -75,6 +75,16 @@ def rule_spans(text: str) -> list[tuple[int, int, str]]:
         for m in pattern.finditer(text):
             spans.append((m.start(), m.end(), label))
     return _dedupe(spans)
+
+
+def supplement_emails(text: str, entities: list[Entity]) -> list[Entity]:
+    """Cover complete email spans when a BIO model predicts only a fragment."""
+    result = list(entities)
+    for match in _EMAIL.finditer(text):
+        start, end = match.span()
+        if not any(entity.start <= start and entity.end >= end for entity in entities):
+            result.append(Entity(start, end, "EMAIL", 1.0, match.group(), "rules"))
+    return sorted(result, key=lambda entity: (entity.start, entity.end, entity.label))
 
 
 class RuleDetector:

@@ -14,6 +14,9 @@ concrete backend.
 from __future__ import annotations
 
 import threading
+from collections import OrderedDict
+from copy import deepcopy
+from time import monotonic
 from typing import Any, Protocol, runtime_checkable
 
 from .config import settings
@@ -27,9 +30,13 @@ class CorrelationStore(Protocol):
     Implementations must be thread-safe.
     """
 
+    def ping(self) -> bool: ...
+
     def get(self, payload_id: str) -> dict[str, Any] | None: ...
 
     def set(self, payload_id: str, data: dict[str, Any]) -> None: ...
+
+    def put_if_absent(self, payload_id: str, data: dict[str, Any]) -> dict[str, Any]: ...
 
     def get_result(self, payload_id: str) -> str | None: ...
 
@@ -40,27 +47,57 @@ class MemoryCorrelationStore:
     """In-process correlation store (fastest, single process)."""
 
     def __init__(self, ttl_s: int | None = None) -> None:
-        self._data: dict[str, dict[str, Any]] = {}
+        self._data: OrderedDict[str, tuple[float, dict[str, Any]]] = OrderedDict()
         self._lock = threading.Lock()
-        self._ttl = ttl_s or settings.result_ttl_s
+        self._ttl = settings.result_ttl_s if ttl_s is None else ttl_s
+        if self._ttl <= 0:
+            raise ValueError("ttl_s must be positive")
+
+    def ping(self) -> bool:
+        return True
+
+    def _purge_expired(self) -> None:
+        now = monotonic()
+        while self._data:
+            deadline, _ = next(iter(self._data.values()))
+            if deadline > now:
+                break
+            self._data.popitem(last=False)
+
+    def _write(self, payload_id: str, data: dict[str, Any]) -> None:
+        self._data[payload_id] = (monotonic() + self._ttl, deepcopy(data))
+        self._data.move_to_end(payload_id)
 
     def get(self, payload_id: str) -> dict[str, Any] | None:
         with self._lock:
-            return self._data.get(payload_id)
+            self._purge_expired()
+            row = self._data.get(payload_id)
+            return deepcopy(row[1]) if row is not None else None
 
     def set(self, payload_id: str, data: dict[str, Any]) -> None:
         with self._lock:
-            self._data[payload_id] = data
+            self._purge_expired()
+            self._write(payload_id, data)
+
+    def put_if_absent(self, payload_id: str, data: dict[str, Any]) -> dict[str, Any]:
+        """Atomically preserve the first original and return the winning record."""
+        with self._lock:
+            self._purge_expired()
+            if payload_id not in self._data:
+                self._write(payload_id, data)
+            return deepcopy(self._data[payload_id][1])
 
     def get_result(self, payload_id: str) -> str | None:
-        with self._lock:
-            row = self._data.get(payload_id)
-            return row.get("masked") if row else None
+        row = self.get(payload_id)
+        return row.get("masked") if row else None
 
     def set_result(self, payload_id: str, result: str) -> None:
         with self._lock:
-            row = self._data.setdefault(payload_id, {})
+            self._purge_expired()
+            existing = self._data.get(payload_id)
+            row = dict(existing[1]) if existing else {}
             row["masked"] = result
+            self._write(payload_id, row)
 
 
 class RedisCorrelationStore:
@@ -71,11 +108,26 @@ class RedisCorrelationStore:
 
         self._store = RedisStore(url=url, ttl_s=ttl_s)
 
+    async def aget(self, payload_id: str) -> dict[str, Any] | None:
+        return await self._store.aget(payload_id)
+
+    async def aping(self) -> bool:
+        return await self._store.aping()
+
+    async def aclose(self) -> None:
+        await self._store.aclose()
+
+    def ping(self) -> bool:
+        return self._store.ping()
+
     def get(self, payload_id: str) -> dict[str, Any] | None:
         return self._store.get_correlation(payload_id)
 
     def set(self, payload_id: str, data: dict[str, Any]) -> None:
         self._store.set_correlation(payload_id, data)
+
+    def put_if_absent(self, payload_id: str, data: dict[str, Any]) -> dict[str, Any]:
+        return self._store.put_if_absent(payload_id, data)
 
     def get_result(self, payload_id: str) -> str | None:
         return self._store.get_result(payload_id)
@@ -89,4 +141,6 @@ def create_correlation_store(backend: str | None = None) -> CorrelationStore:
     kind = (backend or settings.correlation_store).lower()
     if kind == "redis":
         return RedisCorrelationStore()
-    return MemoryCorrelationStore()
+    if kind == "memory":
+        return MemoryCorrelationStore()
+    raise ValueError("unknown correlation store backend")
