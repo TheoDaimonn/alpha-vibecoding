@@ -21,13 +21,95 @@
 - Пользователь раздаёт интернет с телефона, VPS нет. Варианты с обязательной
   банковской картой ему не подходят; Pinggy Pro отвергнут именно по этой причине.
 
+## Сессия 2026-09-23 (вечер): данные, дистилляция, DETECTOR=distil
+
+Зафиксировано по фактическому коду и прогонам. Коммиты: `ee25874` (distil-детектор),
+`00f8f64` (merge c веткой recall_onnx).
+
+### Окружение (проверено)
+
+- `.venv` больше не существует. Локальный python — `/opt/miniconda3/bin/python3` (3.13):
+  torch 2.10, transformers 5.14.1, onnxruntime 1.23, datasets 3.6 — смоуки запускaются локально.
+- Сеть нестабильна (интернет с телефона): HF-запуски смоуков делать с `HF_HUB_OFFLINE=1`,
+  модели rubert-tiny2 и redmadrobot-rnd/rubert-base-pii-ner есть в ~/.cache/huggingface.
+- HF-токен пользователя был скомпрометирован в чате — не использовать, попросить отозвать.
+
+### data/csv (актуальное состояние, запись 19:05)
+
+- train/dev/test = 132 087 / 16 000 / 16 078 строк (~35.5M сущностей в train),
+  пропорция 80/10/10 по md5 нормализованного текста. Проверено: 0 кросс-сплит
+  дубликатов, 0 ошибок оффсетов, id уникальны.
+- `scripts/integrate_new_pii.py` (идемпотентен, NEW_SOURCES переэкстрагируются):
+  + `multiconer_ru_negative` 4 000 — wiki-предложения с PER из tomaarsen/MultiCoNER
+    (CoNLL скачивается напрямую, loading-script несовместим с datasets>=3),
+    чистые негативы без меток (знаменитости — не ПД);
+  + `alexen2_pii_ru` 875 (89 дубликатов с существующим отброшены; хвостовая
+    пунктуация спанов подрезана);
+  + `alrosait_pii_ru` 4 488 (NAME→PERSON, ADDRESS целиком, без оффсетов в источнике —
+    поиск с коллизионной проверкой).
+- `scripts/enrich_csv.py` вернул бонусные метки из data/hybrid по id (тексты сверяются):
+  SNILS 924, OMS 742, MILITARY_ID 1442, BIRTH_CERTIFICATE 1590, IP_ADDRESS 939 —
+  только в train (3772 строки).
+- `scripts/make_rare_label_supplement.py`: источник `task-synthetic-rare-v1`, 3 000 строк,
+  вариации форматов (6 форматов дат, разделители серий, коды подразделений, регистры).
+  Итог по редким меткам: PIN/CARDHOLDER ~1.9k, CVV ~3k, CITIZENSHIP ~2.4k,
+  APARTMENT ~2.6k, PASSPORT_ISSUER/CODE/DATE ~4.7k.
+- `scripts/relabel_public_persons.py` + `public_persons.py` восстановлены из git
+  (`git checkout b9345ad~1 -- scripts/<имя>`), прогнаны: hybrid уже чист, найденные
+  «Пушкины» — прилагательные (Пушкинская премия), НЕ персоны.
+- Скрипты, удалённые коммитом b9345ad (jsonl_to_csv, build_train_notebook, kaggle_*,
+  wolframko и др.), восстановимы той же командой checkout.
+- Незакрытое требование ТЗ: длинные тексты (максимум в корпусе ~20.6k символов,
+  нужно до 100k токенов).
+
+### Дистилляционный ноутбук
+
+- `train/notebooks/distill_rubert_pii_onnx.ipynb`, генератор —
+  `scripts/build_distill_notebook.py` (ноутбук правится ТОЛЬКО через builder).
+- Этапы: (1) адаптация учителя `models/rubert-base-pii-ner` (локальная папка; голова
+  43 классов → 59 BIO наших меток, 29 типов = 24 ТЗ + 5 бонусных), до 5 эпох,
+  early-stop по val_loss (plain CE без весов), чекпоинт `model_distilled/teacher_best/`,
+  пропускается автоматически если существует (переобучение — PII_FORCE_TEACHER_TRAIN=1);
+  (2) студент — равномерная выборка слоёв учителя, дефолт 4 из 12 (0,3,6,9), KD-loss
+  `α·CE + (1−α)·T²·KL`, T=2, α=0.5, class weights, до 10 эпох, тот же early-stop;
+  (3) ONNX FP32 → quantize_dynamic INT8; (4) качество на test до/после квантизации
+  (учитель/студент-torch/ONNX-FP32/ONNX-INT8, span-F1 + char-coverage + per-label
+  дельта INT8); (5) CPU-бенчмарк латентности.
+- env: PII_DATA_DIR, PII_OUT_DIR (default `model_distilled`), PII_TEACHER_NAME,
+  PII_TEACHER_EPOCHS, PII_DISTILL_EPOCHS, PII_STUDENT_LAYERS, PII_BATCH_SIZE (128),
+  PII_EVAL_BATCH_SIZE (256), PII_MAX_ROWS (smoke), PII_FORCE_TEACHER_TRAIN,
+  PII_PRUNE_VOCAB/PII_PRUNE_MIN_COUNT.
+- Сжатие словаря (опция, выключена): keep = токены train+dev (не test!) + спецтокены +
+  одиночные символы; remap old→new id; обрезанный учитель хранится отдельно
+  (`teacher_best_pruned`); при включении сервис ОБЯЗАН применять `vocab_remap.npy`
+  после токенизации. На смоуке 83828→6824, OOV=0.
+- Локальный smoke всех ячеек: `HF_HUB_OFFLINE=1 PII_MAX_ROWS=300
+  PII_TEACHER_NAME=cointegrated/rubert-tiny2 ... python3 /tmp/run_notebook_cells.py
+  train/notebooks/distill_rubert_pii_onnx.ipynb` — проходит до SMOKE OK.
+
+### artifacts/rubert-distil и DETECTOR=distil
+
+- `artifacts/rubert-distil/`: student_int8.onnx (135.6 МБ, INT8), tokenizer.json,
+  tokenizer_config.json, model_config.json (tags 59, max_len 512, stride 128),
+  config.json. Вес в Git LFS (трекинг *.onnx в .gitattributes).
+  ВАЖНО: это 6-слойный студент (запуск был до переключения дефолта на 4 слоя),
+  обрезка словаря НЕ включалась — vocab_remap.npy не нужен.
+  Для инференса достаточно: onnx + tokenizer + model_config.json.
+- Сервис: `DETECTOR=distil`, env `DISTIL_MODEL_PATH` (default artifacts/rubert-distil).
+  `RubertOnnxDetector` параметризован `onnx_filename` и `name` (source сущностей).
+  Запуск: `DETECTOR=distil docker compose up --build`.
+- Тест: `RUN_ONNX_SMOKE=1 python3 -m pytest tests/test_onnx_runtime.py` (2 теста:
+  tiny2 и distil, оба зелёные; без флага — 41 passed).
+- Реестр фабрики после merge: student, rules, rubert_onnx, recall_onnx, distil, hybrid.
+  Конфликт merge в factory.py решён сохранением обеих сторон.
+
 ## Работа с репозиторием
 
 - Не сбрасывайте незакоммиченные изменения: до текущих работ уже были изменения
   в config/factory, distillation и новые transformer/postprocess модули.
 - Сначала смотрите `git status` и локальный код. Не выдавайте старые комментарии,
   рекламные цифры и предположения за измеренные свойства.
-- Локальный Python: `.venv/bin/python`, Kaggle CLI: `.venv/bin/kaggle`.
+- Локальный Python: `/opt/miniconda3/bin/python3` (`.venv` не существует; см. «Сессия 2026-09-23»); Kaggle CLI: `.venv/bin/kaggle`.
 - Секреты не включать в код, логи, ответы, Docker build context и Kaggle bundles.
   Не просите отправлять токены в чат; используйте штатные локальные настройки.
 - Пользователь предпочитает действие без повторных вопросов, когда разрешение уже
