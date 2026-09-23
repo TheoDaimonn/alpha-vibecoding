@@ -10,6 +10,7 @@ services:
       DETECTOR: "${DETECTOR:-student}"
       STUDENT_MODEL_PATH: "${STUDENT_MODEL_PATH:-/app/artifacts/student-pii.pt}"
       RUBERT_MODEL_PATH: "${RUBERT_MODEL_PATH:-/app/artifacts/rubert-tiny2-fine-tuning}"
+      DISTIL_MODEL_PATH: "${DISTIL_MODEL_PATH:-/app/artifacts/rubert-distil}"
       CORRELATION_STORE: "${CORRELATION_STORE:-redis}"
       REDIS_URL: "${REDIS_URL:-redis://redis:6379/0}"
       MODEL_BATCH_SIZE: "${MODEL_BATCH_SIZE:-8}"

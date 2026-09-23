@@ -26,7 +26,10 @@ class RubertOnnxDetector:
         stride: int | None = None,
         intra_threads: int = 1,
         inter_threads: int = 1,
+        onnx_filename: str = "model_int8.onnx",
+        name: str = "rubert_onnx",
     ) -> None:
+        self.name = name
         self._detector = RubertOnnxInference(
             model_path,
             batch_size=batch_size,
@@ -34,6 +37,8 @@ class RubertOnnxDetector:
             stride=stride,
             intra_threads=intra_threads,
             inter_threads=inter_threads,
+            onnx_filename=onnx_filename,
+            source=name,
         )
 
     def predict(self, text: str) -> list[Entity]:

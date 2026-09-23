@@ -46,6 +46,9 @@ class Settings:
     rubert_model_path: str = field(
         default_factory=lambda: _str("RUBERT_MODEL_PATH", "artifacts/rubert-tiny2-fine-tuning")
     )
+    distil_model_path: str = field(
+        default_factory=lambda: _str("DISTIL_MODEL_PATH", "artifacts/rubert-distil")
+    )
     # Empty window settings use the checkpoint configuration.
     rubert_max_len: int | None = field(default_factory=lambda: _optional_int("RUBERT_MAX_LEN"))
     rubert_stride: int | None = field(default_factory=lambda: _optional_int("RUBERT_STRIDE"))
