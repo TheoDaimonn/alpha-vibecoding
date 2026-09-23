@@ -13,3 +13,9 @@
 !artifacts/
 !artifacts/student-pii.pt
 **/__pycache__/
+
+# Support the separate mirror image without including request logs.
+!mirror/
+!mirror/Dockerfile
+!mirror/requirements.txt
+!mirror/app.py

@@ -3,9 +3,10 @@ __pycache__/
 .ipynb_checkpoints/
 .venv/
 .env
+*.crt
 .kaggle/
 *.egg-info/
-
+/data
 # Training checkpoints (17GB) — not committed.
 ru_gliner_hybrid_v4/artifacts/
 
