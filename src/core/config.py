@@ -50,12 +50,17 @@ class Settings:
     student_model_path: str = field(
         default_factory=lambda: _str("STUDENT_MODEL_PATH", "artifacts/student-pii.pt")
     )
+    transformer_model_path: str = field(
+        default_factory=lambda: _str("TRANSFORMER_MODEL_PATH", "artifacts/transformer-pii.pt")
+    )
     device: str = field(default_factory=lambda: _str("DEVICE", "cpu"))
     model_batch_size: int = field(default_factory=lambda: _int("MODEL_BATCH_SIZE", 16))
     worker_batch_size: int = field(default_factory=lambda: _int("WORKER_BATCH_SIZE", 32))
     worker_batch_timeout_s: float = field(default_factory=lambda: _float("WORKER_BATCH_TIMEOUT_S", 0.02))
     worker_threads: int = field(default_factory=lambda: _int("WORKER_THREADS", 4))
     threshold: float = field(default_factory=lambda: _float("THRESHOLD", 0.5))
+    # Post-process: filter public figures / public addresses (not PII).
+    postprocess: bool = field(default_factory=lambda: _str("POSTPROCESS", "0") == "1")
 
     # --- Auth (allowlist of consumer systems) ---
     api_keys: tuple[str, ...] = field(default_factory=lambda: tuple(k for k in _str("API_KEYS", "").split(",") if k))

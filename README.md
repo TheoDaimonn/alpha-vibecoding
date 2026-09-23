@@ -27,6 +27,48 @@ curl -X POST http://localhost:8000/process \
 docker compose up --build
 ```
 
+## Доступ из интернета, в том числе через раздачу с телефона
+
+```bash
+docker compose up --build
+```
+
+После готовности API контейнер `tunnel` подключается к localhost.run и выводит:
+
+```text
+tunnel-1 | PUBLIC_URL=https://случайное-имя.lhr.life
+tunnel-1 | DOCS_URL=https://случайное-имя.lhr.life/docs
+tunnel-1 | PROCESS_URL=https://случайное-имя.lhr.life/process
+```
+
+Это фактический адрес текущего SSH-туннеля. Регистрация, карта и свой домен не нужны.
+После обрыва соединения контейнер переподключается и печатает новый адрес. Старый
+адрес удаляется из файла состояния, чтобы не выдавать его как актуальный.
+Для фонового запуска и получения ссылки:
+
+```bash
+docker compose up -d --build
+docker compose logs -f tunnel
+# Только текущая ссылка, без адресов прошлых соединений:
+docker compose exec -T tunnel cat /run/tunnel/public-url
+```
+
+До подключения или во время переподключения файла public-url нет. Компьютер,
+Docker и интернет должны оставаться включёнными. Исходящий SSH на localhost.run:22
+должен быть доступен у оператора. Адрес не закреплён на неделю; бесплатный сервис
+ограничивает скорость, 2000 RPS не подтверждены нагрузочным тестом.
+[Условия localhost.run](https://localhost.run/docs/forever-free/).
+
+По умолчанию API доступен всем по ссылке. `API_KEYS` в `.env` включает проверку
+`X-API-Key`. Публичный трафик проходит через localhost.run. Redis доступен только
+внутри Compose; RabbitMQ публикуется только на localhost.
+
+Если локальный порт 8000 занят уже запущенным API, используй
+`API_PORT=8001 docker compose up --build`: публичный туннель всё равно подключается
+к контейнеру api:8000. Отключить публикацию: `docker compose stop tunnel`.
+Локальный запуск: `docker compose up -d --build redis api` (ранее работающий tunnel
+нужно отдельно остановить).
+
 ## Контракт API
 
 `POST /process` — единый эндпоинт для маскирования и демаскирования.

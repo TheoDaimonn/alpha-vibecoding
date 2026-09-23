@@ -1,0 +1,15 @@
+# Only runtime files are needed in the build context.
+**
+!Dockerfile
+!requirements.txt
+!src/
+!src/**
+!ru_gliner_hybrid_v4/
+!ru_gliner_hybrid_v4/ru_pii/
+!ru_gliner_hybrid_v4/ru_pii/**
+!ru_gliner_hybrid_v4/models/
+!ru_gliner_hybrid_v4/models/gliner-ru-pii-small/
+!ru_gliner_hybrid_v4/models/gliner-ru-pii-small/**
+!artifacts/
+!artifacts/student-pii.pt
+**/__pycache__/

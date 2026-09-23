@@ -13,24 +13,32 @@ from .base import Detector
 from ..core.config import settings
 from .gliner import GLiNERDetector
 from .hybrid import HybridDetector
+from .postprocess import PostProcessedDetector
 from .rules import RuleDetector
 from .student_detector import StudentDetector
+from .transformer_detector import TransformerDetector
 
 
 def create_detector(detector: str | None = None) -> Detector:
     kind = (detector or settings.detector).lower()
     if kind == "gliner":
-        return GLiNERDetector(
+        base: Detector = GLiNERDetector(
             settings.model_path,
             device=settings.device,
             batch_size=settings.model_batch_size,
             threshold=settings.threshold,
         )
-    if kind == "student":
-        return StudentDetector(settings.student_model_path, device=settings.device)
-    if kind == "rules":
-        return RuleDetector()
-    if kind == "hybrid":
+    elif kind == "student":
+        base = StudentDetector(settings.student_model_path, device=settings.device)
+    elif kind == "transformer":
+        base = TransformerDetector(settings.transformer_model_path, device=settings.device)
+    elif kind == "rules":
+        base = RuleDetector()
+    elif kind == "hybrid":
         model = create_detector(settings.detector if settings.detector != "hybrid" else "gliner")
-        return HybridDetector(model)
-    raise ValueError(f"unknown detector: {kind!r}")
+        base = HybridDetector(model)
+    else:
+        raise ValueError(f"unknown detector: {kind!r}")
+    if settings.postprocess:
+        return PostProcessedDetector(base)
+    return base

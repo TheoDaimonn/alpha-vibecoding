@@ -65,11 +65,11 @@ with train_path.open(encoding="utf-8") as fin, expanded.open("w", encoding="utf-
             preds = teacher.predict_batch(texts)
             for r, ents in zip(rows, preds):
                 gold = {(e["start"], e["end"], e["label"]) for e in r.get("entities", [])}
-                merged = [{"start": s, "end": e, "label": l, "text": r["text"][s:e], "privacy": "personal"} for s, e, l in gold]
+                merged = [{"start": s, "end": e, "label": l, "text": r["text"][s:e], "privacy": "personal", "weight": 1.0} for s, e, l in gold]
                 for ent in ents:
                     key = (ent.start, ent.end, ent.label)
                     if key not in gold:
-                        merged.append({"start": ent.start, "end": ent.end, "label": ent.label, "text": ent.text, "privacy": "personal"})
+                        merged.append({"start": ent.start, "end": ent.end, "label": ent.label, "text": ent.text, "privacy": "personal", "weight": float(ent.score)})
                 r["entities"] = merged
                 fout.write(json.dumps(r, ensure_ascii=False) + "\n")
             texts = []
@@ -78,11 +78,11 @@ with train_path.open(encoding="utf-8") as fin, expanded.open("w", encoding="utf-
         preds = teacher.predict_batch(texts)
         for r, ents in zip(rows, preds):
             gold = {(e["start"], e["end"], e["label"]) for e in r.get("entities", [])}
-            merged = [{"start": s, "end": e, "label": l, "text": r["text"][s:e], "privacy": "personal"} for s, e, l in gold]
+            merged = [{"start": s, "end": e, "label": l, "text": r["text"][s:e], "privacy": "personal", "weight": 1.0} for s, e, l in gold]
             for ent in ents:
                 key = (ent.start, ent.end, ent.label)
                 if key not in gold:
-                    merged.append({"start": ent.start, "end": ent.end, "label": ent.label, "text": ent.text, "privacy": "personal"})
+                    merged.append({"start": ent.start, "end": ent.end, "label": ent.label, "text": ent.text, "privacy": "personal", "weight": float(ent.score)})
             r["entities"] = merged
             fout.write(json.dumps(r, ensure_ascii=False) + "\n")
 print(f"Expanded corpus written: {expanded}", flush=True)

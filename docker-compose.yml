@@ -11,15 +11,13 @@
 services:
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
     command: ["redis-server", "--appendonly", "yes"]
 
   rabbitmq:
     image: rabbitmq:3-management-alpine
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      - "127.0.0.1:5672:5672"
+      - "127.0.0.1:15672:15672"
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
@@ -34,16 +32,38 @@ services:
       STUDENT_MODEL_PATH: /app/artifacts/student-pii.pt
       CORRELATION_STORE: redis
       REDIS_URL: redis://redis:6379/0
+      API_KEYS: "${API_KEYS:-}"
       TRANSPORT: inprocess
       WORKER_THREADS: "2"
       WORKER_BATCH_SIZE: "32"
       WORKER_BATCH_TIMEOUT_S: "0.02"
-      API_WORKERS: "8"
+      API_WORKERS: "${API_WORKERS:-8}"
     ports:
-      - "8000:8000"
+      - "${API_PORT:-8000}:8000"
     depends_on:
       - redis
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 5s
+      timeout: 4s
+      retries: 12
+      start_period: 60s
     deploy:
       resources:
         limits:
           cpus: "4"
+
+  # Prints PUBLIC_URL and DOCS_URL after connecting, and after every reconnect.
+  tunnel:
+    build: ./deploy/tunnel
+    environment:
+      TUNNEL_TARGET: api:8000
+    depends_on:
+      api:
+        condition: service_healthy
+    volumes:
+      - tunnel-state:/state
+    restart: unless-stopped
+
+volumes:
+  tunnel-state:
