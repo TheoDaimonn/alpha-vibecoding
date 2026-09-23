@@ -35,7 +35,11 @@ def _transformer(config: Settings) -> Detector:
 
 
 def _rubert_onnx(config: Settings) -> Detector:
-    return RubertOnnxDetector(config.rubert_model_path, batch_size=config.model_batch_size)
+    return RubertOnnxDetector(
+        config.rubert_model_path, batch_size=config.model_batch_size,
+        max_len=config.rubert_max_len, stride=config.rubert_stride,
+        intra_threads=config.onnx_intra_threads, inter_threads=config.onnx_inter_threads,
+    )
 
 
 def _rules(config: Settings) -> Detector:

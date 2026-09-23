@@ -99,3 +99,31 @@ def test_factory_creates_rubert_onnx():
 
     detector = create_detector("rubert_onnx")
     assert isinstance(detector, RubertOnnxDetector)
+
+
+def test_env_reaches_onnx_builder(monkeypatch):
+    from src.core.config import Settings
+    from src.models import factory
+    expected = {'RUBERT_MAX_LEN': '512', 'RUBERT_STRIDE': '0',
+                'ONNX_INTRA_THREADS': '2', 'ONNX_INTER_THREADS': '3',
+                'MODEL_BATCH_SIZE': '4', 'RUBERT_MODEL_PATH': '/custom/model'}
+    for key, value in expected.items():
+        monkeypatch.setenv(key, value)
+    captured = {}
+    def build(path, **kwargs):
+        captured.update(path=path, **kwargs)
+        return object()
+    monkeypatch.setattr(factory, 'RubertOnnxDetector', build)
+    factory.create_detector('rubert_onnx', config=Settings(postprocess=False))
+    assert captured == dict(path='/custom/model', max_len=512, stride=0,
+                            intra_threads=2, inter_threads=3, batch_size=4)
+
+
+@pytest.mark.skipif(not (_HAS_ORT and HAS_ARTIFACT), reason='checkpoint unavailable')
+@pytest.mark.parametrize('kwargs', [dict(max_len=0), dict(max_len=100000),
+    dict(stride=-1), dict(max_len=8, stride=6), dict(batch_size=0),
+    dict(intra_threads=0), dict(inter_threads=-1)])
+def test_invalid_runtime_configuration(kwargs):
+    from src.models.rubert.inference import RubertOnnxInference
+    with pytest.raises(ValueError):
+        RubertOnnxInference(ARTIFACT, **kwargs)

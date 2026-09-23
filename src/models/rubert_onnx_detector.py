@@ -23,12 +23,16 @@ class RubertOnnxDetector:
         batch_size: int = 16,
         max_len: int | None = None,
         stride: int | None = None,
+        intra_threads: int = 1,
+        inter_threads: int = 1,
     ) -> None:
         self._detector = RubertOnnxInference(
             model_path,
             batch_size=batch_size,
             max_len=max_len,
             stride=stride,
+            intra_threads=intra_threads,
+            inter_threads=inter_threads,
         )
 
     def predict(self, text: str) -> list[Entity]:

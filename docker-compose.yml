@@ -1,13 +1,3 @@
-# PII Security Module — local orchestration.
-#   docker compose up --build
-#
-# The default transport is in-process (fastest): each API worker owns an
-# inference engine with a pool of worker threads. Redis is optional and only
-# needed when CORRELATION_STORE=redis (shared across nodes). RabbitMQ is
-# optional and only used when TRANSPORT=rabbitmq (distributed workers).
-#
-# Scale API workers to raise RPS:  API_WORKERS=4 gives ~1600 RPS with the
-# rules detector on a 4-core machine.
 services:
   redis:
     image: redis:7-alpine
@@ -27,18 +17,29 @@ services:
     build: .
     command: ["python", "-m", "src.run_api"]
     environment:
-      MODEL_PATH: /app/ru_gliner_hybrid_v4/models/gliner-ru-pii-small
+      MODEL_PATH: "${MODEL_PATH:-/app/ru_gliner_hybrid_v4/models/gliner-ru-pii-small}"
       DETECTOR: "${DETECTOR:-student}"
-      STUDENT_MODEL_PATH: /app/artifacts/student-pii.pt
-      RUBERT_MODEL_PATH: /app/artifacts/rubert-tiny2-fine-tuning
-      CORRELATION_STORE: redis
-      REDIS_URL: redis://redis:6379/0
+      STUDENT_MODEL_PATH: "${STUDENT_MODEL_PATH:-/app/artifacts/student-pii.pt}"
+      RUBERT_MODEL_PATH: "${RUBERT_MODEL_PATH:-/app/artifacts/rubert-tiny2-fine-tuning}"
+      CORRELATION_STORE: "${CORRELATION_STORE:-redis}"
+      REDIS_URL: "${REDIS_URL:-redis://redis:6379/0}"
+      MODEL_BATCH_SIZE: "${MODEL_BATCH_SIZE:-16}"
+      RUBERT_MAX_LEN: "${RUBERT_MAX_LEN:-}"
+      RUBERT_STRIDE: "${RUBERT_STRIDE:-}"
+      ONNX_INTRA_THREADS: "${ONNX_INTRA_THREADS:-1}"
+      ONNX_INTER_THREADS: "${ONNX_INTER_THREADS:-1}"
+      DEVICE: "${DEVICE:-cpu}"
+      THRESHOLD: "${THRESHOLD:-0.5}"
+      POSTPROCESS: "${POSTPROCESS:-0}"
+      REQUEST_TIMEOUT_S: "${REQUEST_TIMEOUT_S:-9}"
+      RESULT_TTL_S: "${RESULT_TTL_S:-3600}"
+      TRANSFORMER_MODEL_PATH: "${TRANSFORMER_MODEL_PATH:-/app/artifacts/transformer-pii.pt}"
       API_KEYS: "${API_KEYS:-}"
       TRANSPORT: inprocess
-      WORKER_THREADS: "2"
-      WORKER_BATCH_SIZE: "32"
-      WORKER_BATCH_TIMEOUT_S: "0.02"
-      API_WORKERS: "${API_WORKERS:-8}"
+      WORKER_THREADS: "${WORKER_THREADS:-2}"
+      WORKER_BATCH_SIZE: "${WORKER_BATCH_SIZE:-32}"
+      WORKER_BATCH_TIMEOUT_S: "${WORKER_BATCH_TIMEOUT_S:-0.02}"
+      API_WORKERS: "${API_WORKERS:-1}"
     ports:
       - "${API_PORT:-8000}:8000"
     depends_on:
@@ -58,7 +59,7 @@ services:
   tunnel:
     build: ./deploy/tunnel
     environment:
-      TUNNEL_TARGET: api:8000
+      TUNNEL_TARGET: "${TUNNEL_TARGET:-api:8000}"
     depends_on:
       api:
         condition: service_healthy

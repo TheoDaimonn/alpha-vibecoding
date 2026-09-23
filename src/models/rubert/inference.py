@@ -61,25 +61,40 @@ class RubertOnnxInference:
         batch_size: int = 16,
         max_len: int | None = None,
         stride: int | None = None,
+        intra_threads: int = 1,
+        inter_threads: int = 1,
     ) -> None:
         model_dir = Path(model_path)
         cfg = json.loads((model_dir / "model_config.json").read_text(encoding="utf-8"))
         self.tags: list[str] = list(cfg["tags"])
         self.public_labels: frozenset[str] = frozenset(cfg.get("public_labels", ()))
-        self.max_len = int(max_len or cfg.get("max_len", 1024))
+        self.max_len = int(cfg.get("max_len", 1024) if max_len is None else max_len)
         self.stride = int(stride if stride is not None else cfg.get("stride", 128))
         self.batch_size = int(batch_size)
         self._tokenizer = AutoTokenizer.from_pretrained(model_dir, local_files_only=True)
+        special_tokens = self._tokenizer.num_special_tokens_to_add(pair=False)
+        model_config = json.loads((model_dir / "config.json").read_text(encoding="utf-8"))
+        max_positions = int(model_config["max_position_embeddings"])
+        if not special_tokens < self.max_len <= max_positions:
+            raise ValueError(f"RUBERT_MAX_LEN must be in ({special_tokens}, {max_positions}]")
+        if not 0 <= self.stride < self.max_len - special_tokens:
+            raise ValueError("RUBERT_STRIDE must be >= 0 and smaller than the usable window")
+        if self.batch_size < 1:
+            raise ValueError("MODEL_BATCH_SIZE must be positive")
+        if intra_threads < 1 or inter_threads < 1:
+            raise ValueError("ONNX thread counts must be positive")
         session_options = ort.SessionOptions()
+        session_options.intra_op_num_threads = intra_threads
+        session_options.inter_op_num_threads = inter_threads
         self._session = ort.InferenceSession(
             str(model_dir / "model_int8.onnx"),
             session_options,
             providers=["CPUExecutionProvider"],
         )
         input_names = [i.name for i in self._session.get_inputs()]
-        if len(input_names) != 2:
+        if set(input_names) != {"input_ids", "attention_mask"}:
             raise ValueError(f"unexpected ONNX inputs: {input_names!r}")
-        self._input_ids_name, self._attention_mask_name = input_names
+        self._input_ids_name, self._attention_mask_name = "input_ids", "attention_mask"
 
     def predict(self, text: str) -> list[Entity]:
         return self.predict_batch([text])[0]
