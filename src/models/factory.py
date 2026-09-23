@@ -9,6 +9,7 @@ from .base import Detector
 from .gliner import GLiNERDetector
 from .hybrid import HybridDetector
 from .postprocess import PostProcessedDetector
+from .rubert_onnx_detector import RubertOnnxDetector
 from .rules import RuleDetector
 from .student_detector import StudentDetector
 from .transformer_detector import TransformerDetector
@@ -33,6 +34,10 @@ def _transformer(config: Settings) -> Detector:
     return TransformerDetector(config.transformer_model_path, device=config.device)
 
 
+def _rubert_onnx(config: Settings) -> Detector:
+    return RubertOnnxDetector(config.rubert_model_path, batch_size=config.model_batch_size)
+
+
 def _rules(config: Settings) -> Detector:
     return RuleDetector()
 
@@ -46,6 +51,7 @@ _BUILDERS: Mapping[str, DetectorBuilder] = MappingProxyType({
     "student": _student,
     "transformer": _transformer,
     "rules": _rules,
+    "rubert_onnx": _rubert_onnx,
     "hybrid": _hybrid,
 })
 

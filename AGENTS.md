@@ -34,6 +34,9 @@
   дано. Разрешения из сессии сохраняются, но не обходите отказ автоматической проверки.
 - Не останавливайте посторонние процессы и не перезапускайте весь Docker Desktop
   только потому, что порт занят. Сначала установите причину, используйте другой порт.
+- После существенных изменений (новый детектор/env-переменная, поведение Compose,
+  новые артефакты или команды запуска) в той же сессии обновляйте AGENTS.md —
+  разделы «API и конфигурация», «Детекция», «Проверки и доказательства».
 
 ## API и конфигурация
 
@@ -46,8 +49,30 @@
   Эта проверка не закрывает автоматически все остальные endpoints.
 - `src/core/config.py` по умолчанию задаёт HOST=0.0.0.0, PORT=8000 и DETECTOR=gliner.
   В Compose явно выбран DETECTOR=student, `artifacts/student-pii.pt`.
-- Factory знает rules, student, transformer, gliner, hybrid. `hybrid` сейчас
-  использует GLiNER через factory; это не автоматический гибрид с новым RuBERT.
+- Compose берёт `DETECTOR` из окружения хоста: `DETECTOR: "${DETECTOR:-student}"`
+  (без переменной поведение прежнее — student).
+- Factory знает rules, student, transformer, gliner, hybrid, rubert_onnx. `hybrid`
+  сейчас использует GLiNER через factory; это не автоматический гибрид с новым RuBERT.
+
+## Детектор rubert_onnx (notebook-модель rubert-tiny2 в ONNX int8)
+
+- Артефакт: `artifacts/rubert-tiny2-fine-tuning/` (`model_int8.onnx`, `tokenizer.json`,
+  `tokenizer_config.json`, `config.json`, `model_config.json` с 53 BIO-тегами,
+  max_len=1024, stride=128, public_labels). Скопирован в Docker-образ.
+- Код: `src/models/rubert/inference.py` (инференс — точный перенос cell 16 ноутбука
+  `train/notebooks/train_pii_masker.ipynb`: окна 1024/stride 128, голосование по
+  (start, end), BIO-декод из cell 10), обёртка `src/models/rubert_onnx_detector.py`.
+- `PUBLIC_PERSON`/`PUBLIC_ADDRESS` из предсказаний удаляются — это не ПД.
+- Включение: env `DETECTOR=rubert_onnx`, путь — `RUBERT_MODEL_PATH`
+  (по умолчанию `artifacts/rubert-tiny2-fine-tuning`, в Compose
+  `/app/artifacts/rubert-tiny2-fine-tuning`). Запуск:
+  `DETECTOR=rubert_onnx docker compose up --build`.
+- Score в int8 недетерминирован между батчами (~0.003): спаны/лейблы стабильны,
+  тесты сравнивают без score.
+- Известные слабости самой модели (не интеграции): пропуск паспорта вида
+  «серия 4509 номер 123456» без контекста, обрезание последней цифры номера карты.
+- Тесты: `tests/test_rubert_onnx.py` (BIO-декод, детекция, публичные персоны,
+  batch vs single, длинные тексты, factory).
 - Несколько API-воркеров требуют общего Redis для корреляции; memory не разделяется
   между процессами. `/metrics` хранит счётчики процесса, не агрегирует все воркеры.
 - Значения переменных на хосте не переопределяют произвольные жёстко заданные поля
@@ -198,6 +223,7 @@ bash scripts/push_kaggle_rubert.sh \
 ```bash
 docker compose config --quiet
 .venv/bin/python -m pytest tests/test_recall_experiment.py -q
+.venv/bin/python -m pytest tests/test_rubert_onnx.py -q
 .venv/bin/python scripts/evaluate_pii_recall.py --detector student \
   --out experiments/pii_recall/baseline_student_dev.json
 ```

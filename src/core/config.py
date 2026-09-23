@@ -45,13 +45,16 @@ class Settings:
             str(Path(__file__).resolve().parents[2] / "ru_gliner_hybrid_v4" / "models" / "gliner-ru-pii-small"),
         )
     )
-    # Detector engine: gliner | student | rules | hybrid
+    # Detector engine: gliner | student | rules | hybrid | rubert_onnx
     detector: str = field(default_factory=lambda: _str("DETECTOR", "gliner"))
     student_model_path: str = field(
         default_factory=lambda: _str("STUDENT_MODEL_PATH", "artifacts/student-pii.pt")
     )
     transformer_model_path: str = field(
         default_factory=lambda: _str("TRANSFORMER_MODEL_PATH", "artifacts/transformer-pii.pt")
+    )
+    rubert_model_path: str = field(
+        default_factory=lambda: _str("RUBERT_MODEL_PATH", "artifacts/rubert-tiny2-fine-tuning")
     )
     device: str = field(default_factory=lambda: _str("DEVICE", "cpu"))
     model_batch_size: int = field(default_factory=lambda: _int("MODEL_BATCH_SIZE", 16))
