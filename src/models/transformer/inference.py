@@ -2,17 +2,18 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 import torch
 from transformers import AutoTokenizer
 
 from ru_pii.schema import Entity
 
+from ..batched import BatchedDetector
+
 from .model import TransformerNER, tag_to_label, O_TAG
 
 
-class TransformerDetector:
+class TransformerDetector(BatchedDetector):
     """Fast inference wrapper around the rubert-tiny2 NER model."""
 
     def __init__(self, model: TransformerNER, *, device: str = "cpu", max_len: int = 256) -> None:
@@ -27,10 +28,7 @@ class TransformerDetector:
     def from_pretrained(cls, path: str | Path, *, device: str = "cpu", max_len: int = 256) -> "TransformerDetector":
         return cls(TransformerNER.load(path), device=device, max_len=max_len)
 
-    def predict(self, text: str) -> list[Entity]:
-        return self.predict_batch([text])[0]
-
-    def predict_batch(self, texts: list[str]) -> list[list[Entity]]:
+    def _predict_nonempty(self, texts: list[str]) -> list[list[Entity]]:
         enc = self.tokenizer(
             texts,
             return_tensors="pt",

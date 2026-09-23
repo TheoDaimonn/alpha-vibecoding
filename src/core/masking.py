@@ -11,7 +11,7 @@ payload_id are idempotent.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from typing import Any
 
 from ru_pii.schema import Entity
@@ -30,8 +30,8 @@ class MaskedSpan:
         return asdict(self)
 
 
-def _mask_char(ch: str) -> str:
-    return MASK_CHAR
+def _valid_span(start: int, end: int, length: int) -> bool:
+    return 0 <= start < end <= length
 
 
 def mask_text(text: str, entities: list[Entity]) -> tuple[str, list[MaskedSpan]]:
@@ -39,14 +39,14 @@ def mask_text(text: str, entities: list[Entity]) -> tuple[str, list[MaskedSpan]]
     the original text. Masking is applied from the end so offsets stay valid."""
     spans: list[MaskedSpan] = []
     for e in entities:
-        if e.start < 0 or e.end > len(text) or e.start >= e.end:
+        if not _valid_span(e.start, e.end, len(text)):
             continue
         spans.append(MaskedSpan(e.start, e.end, text[e.start:e.end], e.label))
     spans.sort(key=lambda s: s.start)
     chars = list(text)
     for s in spans:
         for i in range(s.start, s.end):
-            chars[i] = _mask_char(chars[i])
+            chars[i] = MASK_CHAR
     return "".join(chars), spans
 
 
@@ -58,7 +58,7 @@ def unmask_text(masked: str, spans: list[MaskedSpan]) -> str:
     """
     chars = list(masked)
     for s in sorted(spans, key=lambda s: s.start):
-        if s.start < 0 or s.end > len(chars) or s.start >= s.end:
+        if not _valid_span(s.start, s.end, len(chars)):
             continue
         chars[s.start:s.end] = list(s.text)
     return "".join(chars)

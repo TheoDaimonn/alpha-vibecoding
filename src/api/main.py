@@ -12,7 +12,6 @@ It is idempotent by payload_id and returns 429 when the system is overloaded.
 """
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
 from contextlib import asynccontextmanager
@@ -24,22 +23,22 @@ from fastapi.staticfiles import StaticFiles
 
 from ..core.config import settings
 from ..core.engine import InferenceEngine
+from .correlation_service import CorrelationService
+from .metrics import MetricsService
 from .schemas import ProcessRequest, ProcessResponse
 
 logger = logging.getLogger("pii.api")
 
 # --- shared singletons ---
 _engine: InferenceEngine | None = None
+_metrics = MetricsService()
 
-# --- metrics ---
-_metrics: dict[str, Any] = {
-    "total": 0,
-    "masking": 0,
-    "unmasking": 0,
-    "errors": 0,
-    "overloaded": 0,
-    "latency_sum_s": 0.0,
-}
+
+def get_engine() -> InferenceEngine:
+    global _engine
+    if _engine is None:
+        _engine = InferenceEngine()
+    return _engine
 
 
 def get_store() -> Any:
@@ -50,13 +49,6 @@ def get_store() -> Any:
     in-memory backend.
     """
     return get_engine().store
-
-
-def get_engine() -> InferenceEngine:
-    global _engine
-    if _engine is None:
-        _engine = InferenceEngine()
-    return _engine
 
 
 def _authorized(request: Request) -> bool:
@@ -79,6 +71,13 @@ app = FastAPI(title="PII Security Module", version="1.0.0", lifespan=lifespan)
 app.mount("/ui", StaticFiles(directory="src/api/static", html=True), name="ui")
 
 
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(_request: Request, exc: Exception) -> JSONResponse:
+    """Return a clean JSON 500 for any unhandled error (no stack leak)."""
+    logger.exception("unhandled error: %s", exc)
+    return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content={"detail": "internal error"})
+
+
 @app.middleware("http")
 async def auth_middleware(request: Request, call_next):
     if request.url.path == "/process" and not _authorized(request):
@@ -93,53 +92,43 @@ async def health() -> dict[str, Any]:
 
 @app.get("/metrics")
 def metrics() -> dict[str, Any]:
-    m = dict(_metrics)
-    if m["total"]:
-        m["avg_latency_s"] = round(m["latency_sum_s"] / m["total"], 4)
-    return m
+    return _metrics.snapshot()
 
 
 @app.post("/process", response_model=ProcessResponse)
 async def process(req: ProcessRequest, request: Request, response: Response) -> ProcessResponse:
     start = time.monotonic()
-    store = get_store()
-    _metrics["total"] += 1
+    correlation = CorrelationService(get_store())
 
     # Correlation checks. The memory store is a fast dict lookup; the redis
     # store is wrapped in an executor to avoid blocking the event loop.
-    if settings.correlation_store == "redis":
-        loop = asyncio.get_running_loop()
-        correlation = await loop.run_in_executor(None, store.get, req.payload_id)
-    else:
-        correlation = store.get(req.payload_id)
-    if correlation is not None:
+    record = await correlation.get(req.payload_id)
+    if record is not None:
         # Unmasking: the payload is the mask we produced earlier.
-        if correlation.get("masked") == req.payload:
-            _metrics["unmasking"] += 1
-            _metrics["latency_sum_s"] += time.monotonic() - start
-            return ProcessResponse(result=correlation["original"])
+        if record.get("masked") == req.payload:
+            _metrics.record(unmasking=True, latency_s=time.monotonic() - start)
+            return ProcessResponse(result=record["original"])
         # Masking retry with the same id -> return the stored mask.
-        _metrics["masking"] += 1
-        _metrics["latency_sum_s"] += time.monotonic() - start
-        return ProcessResponse(result=correlation["masked"])
+        _metrics.record(masking=True, latency_s=time.monotonic() - start)
+        return ProcessResponse(result=record["masked"])
 
     # New masking request. Idempotent retry while the job is in flight.
-    if settings.correlation_store == "redis":
-        cached = await loop.run_in_executor(None, store.get_result, req.payload_id)
-    else:
-        cached = store.get_result(req.payload_id)
+    cached = await correlation.get_result(req.payload_id)
     if cached is not None:
-        _metrics["masking"] += 1
-        _metrics["latency_sum_s"] += time.monotonic() - start
+        _metrics.record(masking=True, latency_s=time.monotonic() - start)
         return ProcessResponse(result=cached)
 
     # Submit to the inference engine and await the result.
-    result = await get_engine().submit(req.payload_id, req.payload, timeout_s=settings.request_timeout_s)
+    try:
+        result = await get_engine().submit(req.payload_id, req.payload, timeout_s=settings.request_timeout_s)
+    except Exception:  # noqa: BLE001 - surface as a 500, never leak internals
+        _metrics.record_error()
+        logger.exception("inference engine failed for payload_id=%s", req.payload_id)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="inference failed")
     if result is None:
-        _metrics["overloaded"] += 1
+        _metrics.record_overloaded()
         response.headers["Retry-After"] = "1"
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="overloaded, retry later")
 
-    _metrics["masking"] += 1
-    _metrics["latency_sum_s"] += time.monotonic() - start
+    _metrics.record(masking=True, latency_s=time.monotonic() - start)
     return ProcessResponse(result=result)

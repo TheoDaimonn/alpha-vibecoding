@@ -14,7 +14,11 @@ class PostProcessedDetector:
 
     def __init__(self, base: Detector) -> None:
         self.base = base
-        self.name = getattr(base, "name", "base") + "+post"
+        self._name = f"{getattr(base, 'name', 'base')}+post"
+
+    @property
+    def name(self) -> str:
+        return self._name
 
     def predict(self, text: str) -> list[Entity]:
         return filter_public(text, self.base.predict(text))

@@ -1,16 +1,11 @@
-"""Detector factory: build the configured engine.
-
-Switching engines is a one-line config change (``DETECTOR`` env var):
-
-    DETECTOR=gliner    -> GLiNER (default, high quality, slow on CPU)
-    DETECTOR=student   -> distilled BiLSTM-CRF (fast, needs trained checkpoint)
-    DETECTOR=rules     -> rule matcher only (fastest, pattern types only)
-    DETECTOR=hybrid    -> rules for pattern types + model for semantic types
-"""
+"""Construct detector strategies and apply optional post-processing once."""
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping
+from types import MappingProxyType
+
+from ..core.config import Settings, settings
 from .base import Detector
-from ..core.config import settings
 from .gliner import GLiNERDetector
 from .hybrid import HybridDetector
 from .postprocess import PostProcessedDetector
@@ -18,27 +13,61 @@ from .rules import RuleDetector
 from .student_detector import StudentDetector
 from .transformer_detector import TransformerDetector
 
+DetectorBuilder = Callable[[Settings], Detector]
 
-def create_detector(detector: str | None = None) -> Detector:
-    kind = (detector or settings.detector).lower()
-    if kind == "gliner":
-        base: Detector = GLiNERDetector(
-            settings.model_path,
-            device=settings.device,
-            batch_size=settings.model_batch_size,
-            threshold=settings.threshold,
-        )
-    elif kind == "student":
-        base = StudentDetector(settings.student_model_path, device=settings.device)
-    elif kind == "transformer":
-        base = TransformerDetector(settings.transformer_model_path, device=settings.device)
-    elif kind == "rules":
-        base = RuleDetector()
-    elif kind == "hybrid":
-        model = create_detector(settings.detector if settings.detector != "hybrid" else "gliner")
-        base = HybridDetector(model)
-    else:
-        raise ValueError(f"unknown detector: {kind!r}")
-    if settings.postprocess:
-        return PostProcessedDetector(base)
-    return base
+
+def _gliner(config: Settings) -> Detector:
+    return GLiNERDetector(
+        config.model_path,
+        device=config.device,
+        batch_size=config.model_batch_size,
+        threshold=config.threshold,
+    )
+
+
+def _student(config: Settings) -> Detector:
+    return StudentDetector(config.student_model_path, device=config.device)
+
+
+def _transformer(config: Settings) -> Detector:
+    return TransformerDetector(config.transformer_model_path, device=config.device)
+
+
+def _rules(config: Settings) -> Detector:
+    return RuleDetector()
+
+
+def _hybrid(config: Settings) -> Detector:
+    return HybridDetector(_gliner(config))
+
+
+_BUILDERS: Mapping[str, DetectorBuilder] = MappingProxyType({
+    "gliner": _gliner,
+    "student": _student,
+    "transformer": _transformer,
+    "rules": _rules,
+    "hybrid": _hybrid,
+})
+
+
+def create_detector(
+    detector: str | None = None,
+    *,
+    config: Settings | None = None,
+    builders: Mapping[str, DetectorBuilder] | None = None,
+) -> Detector:
+    """Build a detector with injectable configuration and backend constructors.
+
+    Existing callers use process settings. Tests and alternative deployments can
+    supply their own settings/registry without mutating global state. A supplied
+    registry replaces the defaults; hybrid uses a raw GLiNER backend by default.
+    """
+    config = settings if config is None else config
+    registry = _BUILDERS if builders is None else builders
+    kind = (config.detector if detector is None else detector).lower()
+    try:
+        builder = registry[kind]
+    except KeyError:
+        raise ValueError(f"unknown detector: {kind!r}") from None
+    base = builder(config)
+    return PostProcessedDetector(base) if config.postprocess else base

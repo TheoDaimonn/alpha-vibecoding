@@ -17,9 +17,6 @@ from .hybrid import HybridDetector
 from .rules import RuleDetector, rule_spans
 from .student_detector import StudentDetector
 
-# Backward-compatible alias.
-ModelReplica = GLiNERDetector
-
 __all__ = [
     "Detector",
     "create_detector",
@@ -29,5 +26,4 @@ __all__ = [
     "StudentDetector",
     "rule_spans",
     "MODEL_DIR",
-    "ModelReplica",
 ]

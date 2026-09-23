@@ -6,11 +6,13 @@ return :class:`ru_pii.schema.Entity` objects.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Iterable
 
 import torch
 
 from ru_pii.schema import Entity
+
+from ..batched import BatchedDetector
 
 from .model import BiLSTMCRF, char_id, tag_id, tag_to_label, O_TAG
 
@@ -71,7 +73,7 @@ def collate(texts: list[str], max_len: int = 512) -> tuple[torch.Tensor, torch.T
     return chars, mask
 
 
-class StudentDetector:
+class StudentDetector(BatchedDetector):
     """Fast inference wrapper around the distilled BiLSTM-CRF."""
 
     def __init__(self, model: BiLSTMCRF, *, device: str = "cpu", max_len: int = 512) -> None:
@@ -85,10 +87,7 @@ class StudentDetector:
     def from_pretrained(cls, path: str | Path, *, device: str = "cpu", max_len: int = 512) -> "StudentDetector":
         return cls(BiLSTMCRF.load(path), device=device, max_len=max_len)
 
-    def predict(self, text: str) -> list[Entity]:
-        return self.predict_batch([text])[0]
-
-    def predict_batch(self, texts: list[str]) -> list[list[Entity]]:
+    def _predict_nonempty(self, texts: list[str]) -> list[list[Entity]]:
         chars, mask = collate(texts, self.max_len)
         chars = chars.to(self.device)
         mask = mask.to(self.device)

@@ -16,6 +16,7 @@ For every masking job the worker:
 """
 from __future__ import annotations
 
+import json
 import logging
 import queue
 import threading
@@ -24,12 +25,12 @@ from typing import Any
 
 import pika
 
-from ..models import ModelReplica
 from ..models.base import Detector
 from ..models.factory import create_detector
+from .batcher import BatchCollector
 from .config import settings
 from .masking import mask_text, spans_to_dicts
-from .redis_client import RedisStore, ResultNotifier
+from .redis_client import RedisStore
 
 logger = logging.getLogger("pii.worker")
 
@@ -53,6 +54,7 @@ class Worker:
         self.threads = threads or settings.worker_threads
         self.batch_size = batch_size or settings.worker_batch_size
         self.batch_timeout_s = batch_timeout_s or settings.worker_batch_timeout_s
+        self._collector = BatchCollector(self.batch_size, self.batch_timeout_s)
         self._jobs: queue.Queue[dict[str, Any]] = queue.Queue(maxsize=100_000)
         self._stop = threading.Event()
 
@@ -61,25 +63,23 @@ class Worker:
         payload_id = str(job["payload_id"])
         payload = str(job["payload"])
         entities = self.detector.predict(payload)
+        self._store_result(payload_id, payload, entities)
+
+    def _store_result(self, payload_id: str, payload: str, entities: list[Any]) -> None:
         masked, spans = mask_text(payload, entities)
         self.redis.set_correlation(
             payload_id,
             {"original": payload, "masked": masked, "spans": spans_to_dicts(spans)},
         )
         self.redis.set_result(payload_id, masked)
+        self.redis.publish_result(payload_id, masked)
 
     def _process_batch(self, jobs: list[dict[str, Any]]) -> None:
         texts = [str(j["payload"]) for j in jobs]
         ids = [str(j["payload_id"]) for j in jobs]
         results = self.detector.predict_batch(texts)
         for payload_id, payload, entities in zip(ids, texts, results):
-            masked, spans = mask_text(payload, entities)
-            self.redis.set_correlation(
-                payload_id,
-                {"original": payload, "masked": masked, "spans": spans_to_dicts(spans)},
-            )
-            self.redis.set_result(payload_id, masked)
-            self.redis.publish_result(payload_id, masked)
+            self._store_result(payload_id, payload, entities)
 
     def _drain(self) -> None:
         """Pull jobs from the queue, batch them and run inference."""
@@ -88,16 +88,7 @@ class Worker:
                 first = self._jobs.get(timeout=0.5)
             except queue.Empty:
                 continue
-            batch = [first]
-            deadline = time.monotonic() + self.batch_timeout_s
-            while len(batch) < self.batch_size:
-                remaining = deadline - time.monotonic()
-                if remaining <= 0:
-                    break
-                try:
-                    batch.append(self._jobs.get(timeout=remaining))
-                except queue.Empty:
-                    break
+            batch = self._collector.collect_sync(first, self._get_next)
             try:
                 if len(batch) == 1:
                     self._process_one(batch[0])
@@ -105,6 +96,12 @@ class Worker:
                     self._process_batch(batch)
             except Exception:  # noqa: BLE001 - keep the worker alive
                 logger.exception("failed to process batch of %d jobs", len(batch))
+
+    def _get_next(self, timeout_s: float) -> dict[str, Any] | None:
+        try:
+            return self._jobs.get(timeout=timeout_s)
+        except queue.Empty:
+            return None
 
     # --- rabbitmq consumption ---
     def _consume(self) -> None:
@@ -115,7 +112,7 @@ class Worker:
 
         def on_message(_ch, _method, _properties, body) -> None:  # type: ignore[no-untyped-def]
             try:
-                job = json_loads(body)
+                job = json.loads(body.decode("utf-8"))
                 self._jobs.put(job)
             except Exception:  # noqa: BLE001
                 logger.exception("dropping malformed job")
@@ -132,14 +129,13 @@ class Worker:
         threads = [threading.Thread(target=self._drain, daemon=True) for _ in range(self.threads)]
         for t in threads:
             t.start()
-        logger.info("worker started: %d threads, batch=%d timeout=%.3fs", self.threads, self.batch_size, self.batch_timeout_s)
+        logger.info(
+            "worker started: %d threads, batch=%d timeout=%.3fs",
+            self.threads,
+            self.batch_size,
+            self.batch_timeout_s,
+        )
         self._consume()
 
     def stop(self) -> None:
         self._stop.set()
-
-
-def json_loads(body: bytes) -> dict[str, Any]:
-    import json
-
-    return json.loads(body.decode("utf-8"))

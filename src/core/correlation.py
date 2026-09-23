@@ -7,14 +7,33 @@ same payload_id. Two backends are provided:
     single-process deployment. Not shared across API workers.
   * ``redis`` — Redis-backed; shared across processes/nodes.
 
-The engine writes correlations; the HTTP layer reads them.
+The engine writes correlations; the HTTP layer reads them. Both backends
+implement the :class:`CorrelationStore` protocol so callers never depend on a
+concrete backend.
 """
 from __future__ import annotations
 
 import threading
-from typing import Any
+from typing import Any, Protocol, runtime_checkable
 
 from .config import settings
+
+
+@runtime_checkable
+class CorrelationStore(Protocol):
+    """Storage for masking/unmasking correlation records.
+
+    A record maps a ``payload_id`` to ``{"original", "masked", "spans"}``.
+    Implementations must be thread-safe.
+    """
+
+    def get(self, payload_id: str) -> dict[str, Any] | None: ...
+
+    def set(self, payload_id: str, data: dict[str, Any]) -> None: ...
+
+    def get_result(self, payload_id: str) -> str | None: ...
+
+    def set_result(self, payload_id: str, result: str) -> None: ...
 
 
 class MemoryCorrelationStore:
@@ -65,7 +84,8 @@ class RedisCorrelationStore:
         self._store.set_result(payload_id, result)
 
 
-def create_correlation_store(backend: str | None = None) -> Any:
+def create_correlation_store(backend: str | None = None) -> CorrelationStore:
+    """Build the configured correlation store backend."""
     kind = (backend or settings.correlation_store).lower()
     if kind == "redis":
         return RedisCorrelationStore()
