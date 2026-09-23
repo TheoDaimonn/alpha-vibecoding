@@ -4,7 +4,7 @@
 Обучения, корпусов, ноутбуков и GLiNER/transformer-весов здесь нет.
 
 ```bash
-git clone --single-branch --branch runtime-only https://github.com/TheoDaimonn/alpha-vibecoding.git
+git clone --depth 1 --single-branch --branch runtime-only https://github.com/TheoDaimonn/alpha-vibecoding.git
 cd alpha-vibecoding
 git lfs install
 git lfs pull --include="artifacts/student-pii.pt"
