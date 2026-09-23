@@ -1,0 +1,45 @@
+{
+  "source": "ru_gliner_hybrid_v4/models/gliner-ru-pii-small",
+  "torch_threads": 1,
+  "onnx_threads": 1,
+  "scope": "CPU full detector including tokenization, labels, windows and postprocessing; no HTTP",
+  "versions": {
+    "gliner": "0.2.29",
+    "torch": "2.14.0",
+    "onnx": "1.23.0",
+    "onnxruntime": "1.23.2"
+  },
+  "torch": {
+    "1": {
+      "runs": 20,
+      "p50_ms": 82.51224950072356,
+      "p95_ms": 90.15075000206707,
+      "mean_ms": 79.99775419921207,
+      "texts_per_s": 12.500350916224214
+    },
+    "8": {
+      "runs": 20,
+      "p50_ms": 519.0444164982182,
+      "p95_ms": 640.358541997557,
+      "mean_ms": 529.9826187500003,
+      "texts_per_s": 15.094834654895926
+    }
+  },
+  "onnxruntime": {
+    "1": {
+      "runs": 20,
+      "p50_ms": 234.23581250244752,
+      "p95_ms": 269.6946249998291,
+      "mean_ms": 239.55922085115162,
+      "texts_per_s": 4.174333162576709
+    },
+    "8": {
+      "runs": 20,
+      "p50_ms": 2013.9176244992996,
+      "p95_ms": 2396.304499998223,
+      "mean_ms": 2056.0408124489186,
+      "texts_per_s": 3.890973346230089
+    }
+  },
+  "identical_span_predictions_out_of_20": 20
+}

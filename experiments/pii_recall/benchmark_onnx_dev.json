@@ -1,0 +1,319 @@
+{
+  "documents": 4139,
+  "exact_span_micro": {
+    "tp": 11423,
+    "fp": 997,
+    "fn": 3258,
+    "precision": 0.9197262479871176,
+    "recall": 0.7780805122266875,
+    "f1": 0.8429947234419393
+  },
+  "by_label": {
+    "ADDRESS": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 546,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+    },
+    "APARTMENT": {
+      "tp": 273,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    "BIRTH_DATE": {
+      "tp": 274,
+      "fp": 7,
+      "fn": 14,
+      "precision": 0.9750889679715302,
+      "recall": 0.9513888888888888,
+      "f1": 0.9630931458699472
+    },
+    "BIRTH_PLACE": {
+      "tp": 273,
+      "fp": 1,
+      "fn": 12,
+      "precision": 0.9963503649635036,
+      "recall": 0.9578947368421052,
+      "f1": 0.9767441860465116
+    },
+    "BUILDING": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 273,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+    },
+    "CARDHOLDER": {
+      "tp": 136,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    "CARD_NUMBER": {
+      "tp": 269,
+      "fp": 4,
+      "fn": 3,
+      "precision": 0.9853479853479854,
+      "recall": 0.9889705882352942,
+      "f1": 0.9871559633027523
+    },
+    "CITIZENSHIP": {
+      "tp": 273,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    "CITY": {
+      "tp": 489,
+      "fp": 65,
+      "fn": 265,
+      "precision": 0.8826714801444043,
+      "recall": 0.6485411140583555,
+      "f1": 0.7477064220183486
+    },
+    "COUNTRY": {
+      "tp": 380,
+      "fp": 18,
+      "fn": 248,
+      "precision": 0.9547738693467337,
+      "recall": 0.6050955414012739,
+      "f1": 0.7407407407407407
+    },
+    "CVV": {
+      "tp": 270,
+      "fp": 2,
+      "fn": 2,
+      "precision": 0.9926470588235294,
+      "recall": 0.9926470588235294,
+      "f1": 0.9926470588235294
+    },
+    "DISTRICT": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 18,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+    },
+    "DRIVER_LICENSE": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 409,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+    },
+    "DRIVER_LICENSE_NUMBER": {
+      "tp": 409,
+      "fp": 13,
+      "fn": 0,
+      "precision": 0.9691943127962085,
+      "recall": 1.0,
+      "f1": 0.9843561973525873
+    },
+    "DRIVER_LICENSE_SERIES": {
+      "tp": 409,
+      "fp": 6,
+      "fn": 0,
+      "precision": 0.9855421686746988,
+      "recall": 1.0,
+      "f1": 0.9927184466019418
+    },
+    "EMAIL": {
+      "tp": 272,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    "HOUSE": {
+      "tp": 410,
+      "fp": 0,
+      "fn": 136,
+      "precision": 1.0,
+      "recall": 0.7509157509157509,
+      "f1": 0.8577405857740585
+    },
+    "INN": {
+      "tp": 136,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    "PASSPORT": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 409,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+    },
+    "PASSPORT_DIVISION_CODE": {
+      "tp": 404,
+      "fp": 10,
+      "fn": 5,
+      "precision": 0.9758454106280193,
+      "recall": 0.9877750611246944,
+      "f1": 0.9817739975698664
+    },
+    "PASSPORT_ISSUER": {
+      "tp": 408,
+      "fp": 3,
+      "fn": 1,
+      "precision": 0.9927007299270073,
+      "recall": 0.9975550122249389,
+      "f1": 0.9951219512195123
+    },
+    "PASSPORT_ISSUE_DATE": {
+      "tp": 404,
+      "fp": 8,
+      "fn": 5,
+      "precision": 0.9805825242718447,
+      "recall": 0.9877750611246944,
+      "f1": 0.9841656516443362
+    },
+    "PASSPORT_NUMBER": {
+      "tp": 397,
+      "fp": 6,
+      "fn": 12,
+      "precision": 0.9851116625310173,
+      "recall": 0.9706601466992665,
+      "f1": 0.9778325123152709
+    },
+    "PASSPORT_SERIES": {
+      "tp": 405,
+      "fp": 1,
+      "fn": 4,
+      "precision": 0.9975369458128078,
+      "recall": 0.9902200488997555,
+      "f1": 0.9938650306748466
+    },
+    "PERSON": {
+      "tp": 4041,
+      "fp": 851,
+      "fn": 388,
+      "precision": 0.8260425183973835,
+      "recall": 0.9123955746218108,
+      "f1": 0.8670743482458964
+    },
+    "PHONE": {
+      "tp": 272,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    "PIN": {
+      "tp": 136,
+      "fp": 2,
+      "fn": 0,
+      "precision": 0.9855072463768116,
+      "recall": 1.0,
+      "f1": 0.9927007299270074
+    },
+    "POSTAL_CODE": {
+      "tp": 273,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    "PUBLIC_ADDRESS": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 136,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+    },
+    "PUBLIC_PERSON": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 136,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+    },
+    "REGION": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 372,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+    },
+    "STREET": {
+      "tp": 410,
+      "fp": 0,
+      "fn": 136,
+      "precision": 1.0,
+      "recall": 0.7509157509157509,
+      "f1": 0.8577405857740585
+    }
+  },
+  "privacy_character_conservative": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 0,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0
+  },
+  "documents_with_personal_pii": 0,
+  "documents_with_missed_personal_characters": 0,
+  "document_leakage_rate": null,
+  "note": "Privacy-character metrics are populated only for separately adjudicated privacy-evaluation records. They are not the organisers' metric.",
+  "by_source": {
+    "factrueval2016": {
+      "tp": 2018,
+      "fp": 199,
+      "fn": 101,
+      "precision": 0.9102390617952187,
+      "recall": 0.9523360075507314,
+      "f1": 0.9308118081180812
+    },
+    "nerel": {
+      "tp": 987,
+      "fp": 730,
+      "fn": 667,
+      "precision": 0.574839836924869,
+      "recall": 0.5967351874244257,
+      "f1": 0.5855829130821715
+    },
+    "task-synthetic-supplement-v2": {
+      "tp": 8418,
+      "fp": 68,
+      "fn": 2490,
+      "precision": 0.9919868017911855,
+      "recall": 0.7717271727172718,
+      "f1": 0.8681035371764465
+    }
+  },
+  "detector": "rubert_onnx",
+  "split": "dev",
+  "elapsed_s": 24.715533018112183,
+  "scope": "Raw detector, before API public-context filtering; corpus annotation protocol, not organiser score",
+  "required_labels_below_095": [
+    "ADDRESS",
+    "CITY",
+    "COUNTRY",
+    "HOUSE",
+    "PERSON",
+    "STREET"
+  ]
+}

@@ -1,0 +1,325 @@
+{
+  "documents": 4139,
+  "exact_span_micro": {
+    "tp": 9194,
+    "fp": 1827,
+    "fn": 5487,
+    "precision": 0.834225569367571,
+    "recall": 0.6262516177372114,
+    "f1": 0.7154307057816512
+  },
+  "by_label": {
+    "ADDRESS": {
+      "tp": 306,
+      "fp": 115,
+      "fn": 240,
+      "precision": 0.7268408551068883,
+      "recall": 0.5604395604395604,
+      "f1": 0.6328852119958635
+    },
+    "APARTMENT": {
+      "tp": 273,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    "BIRTH_DATE": {
+      "tp": 277,
+      "fp": 8,
+      "fn": 11,
+      "precision": 0.9719298245614035,
+      "recall": 0.9618055555555556,
+      "f1": 0.9668411867364747
+    },
+    "BIRTH_PLACE": {
+      "tp": 273,
+      "fp": 1,
+      "fn": 12,
+      "precision": 0.9963503649635036,
+      "recall": 0.9578947368421052,
+      "f1": 0.9767441860465116
+    },
+    "BUILDING": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 273,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+    },
+    "CARDHOLDER": {
+      "tp": 136,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    "CARD_NUMBER": {
+      "tp": 212,
+      "fp": 10,
+      "fn": 60,
+      "precision": 0.954954954954955,
+      "recall": 0.7794117647058824,
+      "f1": 0.8582995951417005
+    },
+    "CITIZENSHIP": {
+      "tp": 273,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    "CITY": {
+      "tp": 150,
+      "fp": 76,
+      "fn": 604,
+      "precision": 0.6637168141592921,
+      "recall": 0.1989389920424403,
+      "f1": 0.3061224489795918
+    },
+    "COUNTRY": {
+      "tp": 471,
+      "fp": 147,
+      "fn": 157,
+      "precision": 0.7621359223300971,
+      "recall": 0.75,
+      "f1": 0.7560192616372392
+    },
+    "CVV": {
+      "tp": 265,
+      "fp": 8,
+      "fn": 7,
+      "precision": 0.9706959706959707,
+      "recall": 0.9742647058823529,
+      "f1": 0.9724770642201834
+    },
+    "DISTRICT": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 18,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+    },
+    "DRIVER_LICENSE": {
+      "tp": 84,
+      "fp": 325,
+      "fn": 325,
+      "precision": 0.20537897310513448,
+      "recall": 0.20537897310513448,
+      "f1": 0.20537897310513448
+    },
+    "DRIVER_LICENSE_NUMBER": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 409,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+    },
+    "DRIVER_LICENSE_SERIES": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 409,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+    },
+    "EMAIL": {
+      "tp": 272,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    "HOUSE": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 546,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+    },
+    "INN": {
+      "tp": 136,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    "PASSPORT": {
+      "tp": 24,
+      "fp": 385,
+      "fn": 385,
+      "precision": 0.05867970660146699,
+      "recall": 0.05867970660146699,
+      "f1": 0.05867970660146699
+    },
+    "PASSPORT_DIVISION_CODE": {
+      "tp": 409,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    "PASSPORT_ISSUER": {
+      "tp": 409,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    "PASSPORT_ISSUE_DATE": {
+      "tp": 409,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    "PASSPORT_NUMBER": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 409,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+    },
+    "PASSPORT_SERIES": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 409,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+    },
+    "PERSON": {
+      "tp": 3868,
+      "fp": 465,
+      "fn": 561,
+      "precision": 0.8926840526194323,
+      "recall": 0.87333483856401,
+      "f1": 0.8829034467016663
+    },
+    "PHONE": {
+      "tp": 272,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    "PIN": {
+      "tp": 118,
+      "fp": 0,
+      "fn": 18,
+      "precision": 1.0,
+      "recall": 0.8676470588235294,
+      "f1": 0.9291338582677166
+    },
+    "POSTAL_CODE": {
+      "tp": 273,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    "PUBLIC_ADDRESS": {
+      "tp": 50,
+      "fp": 26,
+      "fn": 86,
+      "precision": 0.6578947368421053,
+      "recall": 0.36764705882352944,
+      "f1": 0.47169811320754723
+    },
+    "PUBLIC_PERSON": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 136,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+    },
+    "REGION": {
+      "tp": 284,
+      "fp": 14,
+      "fn": 88,
+      "precision": 0.9530201342281879,
+      "recall": 0.7634408602150538,
+      "f1": 0.8477611940298507
+    },
+    "STREET": {
+      "tp": 0,
+      "fp": 273,
+      "fn": 546,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+    }
+  },
+  "privacy_character_conservative": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 0,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0
+  },
+  "documents_with_personal_pii": 0,
+  "documents_with_missed_personal_characters": 0,
+  "document_leakage_rate": null,
+  "note": "Privacy-character metrics are populated only for separately adjudicated privacy-evaluation records. They are not the organisers' metric.",
+  "by_source": {
+    "factrueval2016": {
+      "tp": 1928,
+      "fp": 241,
+      "fn": 191,
+      "precision": 0.8888888888888888,
+      "recall": 0.9098631429919773,
+      "f1": 0.8992537313432835
+    },
+    "nerel": {
+      "tp": 897,
+      "fp": 464,
+      "fn": 757,
+      "precision": 0.6590742101396032,
+      "recall": 0.5423216444981862,
+      "f1": 0.5950248756218905
+    },
+    "task-synthetic-supplement-v2": {
+      "tp": 6369,
+      "fp": 1122,
+      "fn": 4539,
+      "precision": 0.8502202643171806,
+      "recall": 0.5838833883388339,
+      "f1": 0.6923202347953693
+    }
+  },
+  "detector": "transformer",
+  "split": "dev",
+  "elapsed_s": 24.13801121711731,
+  "scope": "Raw detector, before API public-context filtering; corpus annotation protocol, not organiser score",
+  "required_labels_below_095": [
+    "ADDRESS",
+    "CARD_NUMBER",
+    "CITY",
+    "COUNTRY",
+    "DRIVER_LICENSE_NUMBER",
+    "DRIVER_LICENSE_SERIES",
+    "HOUSE",
+    "PASSPORT_NUMBER",
+    "PASSPORT_SERIES",
+    "PERSON",
+    "PIN",
+    "STREET"
+  ]
+}

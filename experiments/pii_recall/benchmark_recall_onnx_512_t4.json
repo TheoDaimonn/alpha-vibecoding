@@ -1,0 +1,35 @@
+{
+  "onnx": "artifacts/recall-rubert-1024/onnx/model_int8.onnx",
+  "threads": 4,
+  "max_length": 512,
+  "stride": 128,
+  "scope": "CPU full windowed inference incl. tokenization + ONNX + BIO decode; no HTTP",
+  "1": {
+    "runs": 30,
+    "p50_ms": 10.157728498597862,
+    "p95_ms": 10.300832997018006,
+    "mean_ms": 10.166098465803467,
+    "texts_per_s": 98.36615328523341
+  },
+  "8": {
+    "runs": 30,
+    "p50_ms": 103.93156249483582,
+    "p95_ms": 165.9565419977298,
+    "mean_ms": 115.657595765515,
+    "texts_per_s": 69.16968960879366
+  },
+  "16": {
+    "runs": 30,
+    "p50_ms": 215.38902099928237,
+    "p95_ms": 278.70362499379553,
+    "mean_ms": 235.77001526597692,
+    "texts_per_s": 67.86274319891812
+  },
+  "32": {
+    "runs": 30,
+    "p50_ms": 441.4016874980007,
+    "p95_ms": 508.7950829984038,
+    "mean_ms": 461.6517359997185,
+    "texts_per_s": 69.31632116730417
+  }
+}

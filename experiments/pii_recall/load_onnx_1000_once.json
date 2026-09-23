@@ -1,0 +1,30 @@
+{
+  "url": "http://127.0.0.1:8000",
+  "rate": 1000,
+  "duration_s": 1.0,
+  "scheduled": 1000,
+  "sent": 1000,
+  "client_skipped": 0,
+  "statuses": {
+    "200": 1000
+  },
+  "successful": 1000,
+  "elapsed_s": 1.373854792000202,
+  "injection_s": 0.9990784580004402,
+  "dispatch_rps": 1000.9223920225487,
+  "successful_rps_including_drain": 727.8789620437943,
+  "successful_rps_during_window": 556.0,
+  "successful_within_1s": 1000,
+  "latency_s": {
+    "p50": 0.3263635830007843,
+    "p95": 0.44652570800099056,
+    "p99": 0.4672198749976815
+  },
+  "scheduling_lag_s": {
+    "p50": 0.00014399999781744555,
+    "p95": 0.015507874995819293,
+    "p99": 0.024803583000903018
+  },
+  "max_latency_s": 0.4759696660039481,
+  "payload": "Synthetic Russian PII, approximately 130 characters; unique IDs and emails; no retries"
+}

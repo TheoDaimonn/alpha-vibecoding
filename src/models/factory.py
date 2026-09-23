@@ -29,6 +29,17 @@ def _rubert_onnx(config: Settings) -> Detector:
     )
 
 
+def _recall_onnx(config: Settings) -> Detector:
+    from .recall_onnx_detector import RecallOnnxDetector
+
+    return RecallOnnxDetector(
+        config.recall_model_path, batch_size=config.model_batch_size,
+        max_len=config.recall_max_len, stride=config.recall_stride,
+        bias=config.recall_bias,
+        intra_threads=config.onnx_intra_threads, inter_threads=config.onnx_inter_threads,
+    )
+
+
 def _rules(config: Settings) -> Detector:
     return RuleDetector()
 
@@ -41,6 +52,7 @@ _BUILDERS: Mapping[str, DetectorBuilder] = MappingProxyType({
     "student": _student,
     "rules": _rules,
     "rubert_onnx": _rubert_onnx,
+    "recall_onnx": _recall_onnx,
     "hybrid": _hybrid,
 })
 

@@ -1,0 +1,6 @@
+{
+  "fp8_e4m3_native_matmul": "[ONNXRuntimeError] : 10 : INVALID_GRAPH : This is an invalid model. Type Error: Type 'tensor(float8e4m3fn)' of input parameter (xf) of operator (MatMul) in node () is invalid.",
+  "fp8_e4m3_cast_to_fp32": "OK",
+  "bf8_e5m2_native_matmul": "[ONNXRuntimeError] : 10 : INVALID_GRAPH : This is an invalid model. Type Error: Type 'tensor(float8e5m2)' of input parameter (xf) of operator (MatMul) in node () is invalid.",
+  "bf8_e5m2_cast_to_fp32": "OK"
+}
