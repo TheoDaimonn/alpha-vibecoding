@@ -1,0 +1,2 @@
+# Optional, only for rebuilding the PDF report; not required for model training.
+reportlab>=4.0,<5

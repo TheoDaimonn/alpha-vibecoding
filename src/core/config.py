@@ -49,6 +49,13 @@ class Settings:
     # Empty window settings use the checkpoint configuration.
     rubert_max_len: int | None = field(default_factory=lambda: _optional_int("RUBERT_MAX_LEN"))
     rubert_stride: int | None = field(default_factory=lambda: _optional_int("RUBERT_STRIDE"))
+    # Recall RuBERT (per-type BIO heads) ONNX int8 detector.
+    recall_model_path: str = field(
+        default_factory=lambda: _str("RECALL_MODEL_PATH", "artifacts/recall-rubert-1024/onnx")
+    )
+    recall_max_len: int = field(default_factory=lambda: _int("RECALL_MAX_LEN", 1024))
+    recall_stride: int = field(default_factory=lambda: _int("RECALL_STRIDE", 256))
+    recall_bias: float = field(default_factory=lambda: _float("RECALL_BIAS", 0.0))
     onnx_intra_threads: int = field(default_factory=lambda: _int("ONNX_INTRA_THREADS", 1))
     onnx_inter_threads: int = field(default_factory=lambda: _int("ONNX_INTER_THREADS", 1))
     device: str = field(default_factory=lambda: _str("DEVICE", "cpu"))

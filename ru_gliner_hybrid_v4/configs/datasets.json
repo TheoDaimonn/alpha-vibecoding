@@ -1,0 +1,117 @@
+[
+  {
+    "id": "nerel",
+    "name": "NEREL",
+    "url": "https://huggingface.co/datasets/iluvvatar/NEREL",
+    "text_provenance": "human-written Russian Wikinews",
+    "annotation": "manual nested NER + relations",
+    "role": "default_train_dev_test",
+    "default": true,
+    "synthetic_text": false,
+    "labels_used": [
+      "PERSON",
+      "COUNTRY",
+      "CITY",
+      "REGION",
+      "DISTRICT",
+      "BIRTH_DATE",
+      "BIRTH_PLACE"
+    ],
+    "notes": "Birth date/place are mapped only from explicit DATE_OF_BIRTH/PLACE_OF_BIRTH relations."
+  },
+  {
+    "id": "collection3",
+    "name": "Collection3",
+    "url": "https://huggingface.co/datasets/RCC-MSU/collection3",
+    "text_provenance": "real Russian news based on Persons-1000",
+    "annotation": "manual PER/LOC/ORG NER",
+    "role": "optional_train_license_review",
+    "default": false,
+    "synthetic_text": false,
+    "labels_used": [
+      "PERSON"
+    ],
+    "license_note": "HF metadata says license=other; do not redistribute blindly."
+  },
+  {
+    "id": "factrueval2016",
+    "name": "FactRuEval-2016",
+    "url": "https://www.kaggle.com/datasets/constantinwerner/multilingual-ner-dataset",
+    "original_url": "https://github.com/dialogue-evaluation/factRuEval-2016",
+    "text_provenance": "real Russian news",
+    "annotation": "manual competition NER; Kaggle mirror converted to IOB/OntoNotes",
+    "role": "default_train_dev_test",
+    "default": true,
+    "synthetic_text": false,
+    "labels_used": [
+      "PERSON"
+    ],
+    "license_note": "Kaggle mirror declares CC0; preserve original FactRuEval attribution."
+  },
+  {
+    "id": "jayguard",
+    "name": "Jay Guard NER Benchmark",
+    "url": "https://huggingface.co/datasets/just-ai/jayguard-ner-benchmark",
+    "text_provenance": "real conversational contexts; released after real PII removal/replacement",
+    "annotation": "PII NER",
+    "role": "optional_train",
+    "default": false,
+    "synthetic_text": false,
+    "labels_used": [
+      "PERSON",
+      "PUBLIC_PERSON",
+      "ADDRESS"
+    ],
+    "notes": "Optional because values were de-identified and it is published as a benchmark."
+  },
+  {
+    "id": "redmadrobot_pii_train",
+    "name": "Russian PII NER Training Dataset",
+    "url": "https://huggingface.co/datasets/redmadrobot-rnd/pii_train",
+    "role": "default_train",
+    "default": true,
+    "synthetic_text": "mixed",
+    "notes": "Primary task-oriented RU PII source. 9,940 published rows come from pseudonymized production-log contexts; source also contains synthetic document rows and hard negatives. pii_benchmark remains held out.",
+    "license": "MIT",
+    "labels_used": [
+      "PERSON",
+      "COUNTRY",
+      "REGION",
+      "DISTRICT",
+      "CITY",
+      "STREET",
+      "HOUSE",
+      "EMAIL",
+      "PHONE",
+      "PASSPORT",
+      "INN",
+      "CARD_NUMBER",
+      "DRIVER_LICENSE",
+      "SNILS",
+      "OMS",
+      "MILITARY_ID",
+      "BIRTH_CERTIFICATE",
+      "IP_ADDRESS",
+      "URL"
+    ]
+  },
+  {
+    "id": "hivetrace_pii_bench",
+    "name": "HiveTrace PII-Bench",
+    "url": "https://huggingface.co/datasets/hivetrace/pii-bench",
+    "role": "evaluation_only",
+    "default": false,
+    "notes": "Never used for training."
+  },
+  {
+    "id": "task_synthetic_supplement",
+    "name": "Focused task synthetic supplement",
+    "url": null,
+    "role": "default_train_dev_test_supplement",
+    "default": true,
+    "synthetic_text": true,
+    "license": "CC0-1.0",
+    "labels_used": "all hackathon-required labels; focused on classes absent/weak in public Russian corpora",
+    "notes": "Generated locally with exact offsets; never used as the only training source."
+  }
+]

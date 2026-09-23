@@ -1,0 +1,55 @@
+services:
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+
+  api:
+    build: .
+    command: ["python", "-m", "src.run_api"]
+    environment:
+      DETECTOR: "${DETECTOR:-student}"
+      STUDENT_MODEL_PATH: "${STUDENT_MODEL_PATH:-/app/artifacts/student-pii.pt}"
+      RUBERT_MODEL_PATH: "${RUBERT_MODEL_PATH:-/app/artifacts/rubert-tiny2-fine-tuning}"
+      RECALL_MODEL_PATH: "${RECALL_MODEL_PATH:-/app/artifacts/recall-rubert-1024/onnx}"
+      CORRELATION_STORE: "${CORRELATION_STORE:-redis}"
+      REDIS_URL: "${REDIS_URL:-redis://redis:6379/0}"
+      MODEL_BATCH_SIZE: "${MODEL_BATCH_SIZE:-16}"
+      RUBERT_MAX_LEN: "${RUBERT_MAX_LEN:-}"
+      RUBERT_STRIDE: "${RUBERT_STRIDE:-}"
+      RECALL_MAX_LEN: "${RECALL_MAX_LEN:-1024}"
+      RECALL_STRIDE: "${RECALL_STRIDE:-256}"
+      RECALL_BIAS: "${RECALL_BIAS:-0.0}"
+      ONNX_INTRA_THREADS: "${ONNX_INTRA_THREADS:-2}"
+      ONNX_INTER_THREADS: "${ONNX_INTER_THREADS:-1}"
+      DEVICE: "${DEVICE:-cpu}"
+      THRESHOLD: "${THRESHOLD:-0.5}"
+      POSTPROCESS: "${POSTPROCESS:-0}"
+      REQUEST_TIMEOUT_S: "${REQUEST_TIMEOUT_S:-15}"
+      RESULT_TTL_S: "${RESULT_TTL_S:-3600}"
+      API_KEYS: "${API_KEYS:-}"
+      WORKER_QUEUE_SIZE: "${WORKER_QUEUE_SIZE:-512}"
+      WORKER_QUEUE_CHARS: "${WORKER_QUEUE_CHARS:-8000000}"
+      WORKER_THREADS: "${WORKER_THREADS:-2}"
+      WORKER_BATCH_SIZE: "${WORKER_BATCH_SIZE:-32}"
+      WORKER_BATCH_TIMEOUT_S: "${WORKER_BATCH_TIMEOUT_S:-0.005}"
+      TOKENIZERS_PARALLELISM: "false"
+      OMP_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+      API_WORKERS: "${API_WORKERS:-4}"
+    ports:
+      - "${API_PORT:-8000}:8000"
+    volumes:
+      - ./artifacts/rubert-distil:/app/artifacts/rubert-distil
+    depends_on:
+      - redis
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 5s
+      timeout: 4s
+      retries: 12
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: "${API_CPUS:-7}"
+          memory: "${API_MEMORY_LIMIT:-12g}"
