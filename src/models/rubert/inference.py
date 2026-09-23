@@ -66,15 +66,18 @@ class RubertOnnxInference:
         stride: int | None = None,
         intra_threads: int = 1,
         inter_threads: int = 1,
+        onnx_filename: str = "model_int8.onnx",
+        source: str = "rubert_onnx",
     ) -> None:
         model_dir = Path(model_path)
-        model_file = require_model_file(model_dir / "model_int8.onnx")
+        model_file = require_model_file(model_dir / onnx_filename)
         cfg = json.loads((model_dir / "model_config.json").read_text(encoding="utf-8"))
         self.tags: list[str] = list(cfg["tags"])
         self.public_labels: frozenset[str] = frozenset(cfg.get("public_labels", ()))
         self.max_len = int(cfg.get("max_len", 1024) if max_len is None else max_len)
         self.stride = int(stride if stride is not None else cfg.get("stride", 128))
         self.batch_size = int(batch_size)
+        self.source = source
         self._tokenizer_lock = threading.Lock()
         self._tokenizer = AutoTokenizer.from_pretrained(model_dir, local_files_only=True)
         special_tokens = self._tokenizer.num_special_tokens_to_add(pair=False)
@@ -165,6 +168,6 @@ class RubertOnnxInference:
             for s, e, label in bio_decode(sorted(vote), [vote[k][0] for k in sorted(vote)], self.tags):
                 if label in self.public_labels:
                     continue
-                entities.append(Entity(s, e, label, score_by_start.get(s, 0.0), text[s:e], "rubert_onnx"))
+                entities.append(Entity(s, e, label, score_by_start.get(s, 0.0), text[s:e], self.source))
             results.append(entities)
         return results

@@ -29,6 +29,17 @@ def _rubert_onnx(config: Settings) -> Detector:
     )
 
 
+def _distil(config: Settings) -> Detector:
+    from .rubert_onnx_detector import RubertOnnxDetector
+
+    return RubertOnnxDetector(
+        config.distil_model_path, batch_size=config.model_batch_size,
+        max_len=config.rubert_max_len, stride=config.rubert_stride,
+        intra_threads=config.onnx_intra_threads, inter_threads=config.onnx_inter_threads,
+        onnx_filename="student_int8.onnx", name="distil",
+    )
+
+
 def _rules(config: Settings) -> Detector:
     return RuleDetector()
 
@@ -41,6 +52,7 @@ _BUILDERS: Mapping[str, DetectorBuilder] = MappingProxyType({
     "student": _student,
     "rules": _rules,
     "rubert_onnx": _rubert_onnx,
+    "distil": _distil,
     "hybrid": _hybrid,
 })
 
