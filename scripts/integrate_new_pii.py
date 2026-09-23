@@ -9,6 +9,14 @@ Sources:
   merged into PERSON; document numbers are split into series/number.
 - Meddies/meddies-pii config "russian" (HF, CC-BY-NC-4.0): marked-up text plus
   a clean "raw" field; spans are recomputed on the raw text.
+- tomaarsen/MultiCoNER config "ru" (HF, CC-BY-4.0): CoNLL files are fetched
+  directly (the repo uses a loading script unsupported by datasets>=3). Wiki
+  sentences with PER entities are added as hard negatives without labels:
+  notable public figures are not personal data (corpus policy).
+- alexen2/pii-ner-ru-benchmark (HF): token/BIO rows; text is rebuilt by joining
+  tokens with single spaces, char offsets computed on the rebuilt text.
+- alrosait/pii-synthetic-ru (HF, MIT): JSONL without offsets; entity values are
+  located in the text with collision-aware search.
 
 Only ALLOWED_LABELS (the hackathon task labels plus PUBLIC_*) survive, matching
 scripts/jsonl_to_csv.py conventions. Rows whose entities are fully filtered
@@ -48,7 +56,27 @@ ALLOWED_LABELS = frozenset(
 NAME_PART_LABELS = frozenset({"FIRST_NAME", "MIDDLE_NAME", "LAST_NAME"})
 SPLITS = ("train", "dev", "test")
 CSV_FIELDS = ("id", "split", "source", "text", "entities")
-NEW_SOURCES = frozenset({"hivetrace_pii_bench", "redmadrobot_pii_benchmark", "meddies_pii_ru"})
+NEW_SOURCES = frozenset(
+    {
+        "hivetrace_pii_bench", "redmadrobot_pii_benchmark", "meddies_pii_ru",
+        "multiconer_ru_negative", "alexen2_pii_ru", "alrosait_pii_ru",
+    }
+)
+SOURCE_PREFIXES = {
+    "hivetrace_pii_bench": "hivetrace",
+    "redmadrobot_pii_benchmark": "rmr-bench",
+    "meddies_pii_ru": "meddies-ru",
+    "multiconer_ru_negative": "mcner-neg",
+    "alexen2_pii_ru": "alexen2",
+    "alrosait_pii_ru": "alrosait",
+}
+MULTICONER_NEGATIVE_LIMIT = 4000
+MULTICONER_SEED = 20260923
+MULTICONER_FILES = (
+    "https://huggingface.co/datasets/tomaarsen/MultiCoNER/resolve/main/RU-Russian/ru_train.conll",
+    "https://huggingface.co/datasets/tomaarsen/MultiCoNER/resolve/main/RU-Russian/ru_dev.conll",
+    "https://huggingface.co/datasets/tomaarsen/MultiCoNER/resolve/main/RU-Russian/ru_test.conll",
+)
 MAX_SPAN_LEN = {
     "PERSON": 100, "PHONE": 30, "EMAIL": 60, "ADDRESS": 200, "CARD_NUMBER": 30,
     "INN": 15, "CVV": 6, "CITY": 100, "COUNTRY": 60, "STREET": 150, "HOUSE": 40,
@@ -314,6 +342,139 @@ def extract_meddies_russian() -> list[dict]:
     return rows
 
 
+def extract_multiconer_negatives(limit: int = MULTICONER_NEGATIVE_LIMIT) -> list[dict]:
+    """Russian MultiCoNER sentences containing PER entities as hard negatives.
+
+    The corpus is built from Wikipedia sentences, so annotated PER spans are
+    notable public figures; per the corpus policy they are not personal data,
+    and the rows are added without any labels (clean negatives).
+    """
+    import random
+    import urllib.request
+
+    rows: list[dict] = []
+    for url in MULTICONER_FILES:
+        with urllib.request.urlopen(url) as response:
+            body = response.read().decode("utf-8")
+        tokens: list[str] = []
+        tags: list[str] = []
+        has_per = False
+        for line in body.splitlines() + [""]:
+            line = line.strip()
+            if not line:
+                if tokens and has_per:
+                    rows.append(
+                        {
+                            "source": "multiconer_ru_negative",
+                            "text": " ".join(tokens),
+                            "entities": [],
+                        }
+                    )
+                tokens, tags, has_per = [], [], False
+                continue
+            parts = line.split("\t") if "\t" in line else line.split()
+            tokens.append(parts[0])
+            tag = parts[-1] if len(parts) > 1 else "O"
+            tags.append(tag)
+            if tag.endswith("-PER"):
+                has_per = True
+    rows = [row for row in rows if is_russian(row["text"])]
+    rng = random.Random(MULTICONER_SEED)
+    rng.shuffle(rows)
+    return rows[:limit]
+
+
+ALEXEN2_LABEL_MAP = {"PER": "PERSON", "PHONE": "PHONE", "EMAIL": "EMAIL"}
+
+
+def extract_alexen2() -> list[dict]:
+    from datasets import load_dataset
+
+    ds = load_dataset("alexen2/pii-ner-ru-benchmark")["test"]
+    feature = ds.features["ner_tags"].feature
+    rows: list[dict] = []
+    for i, ex in enumerate(ds):
+        location = f"alexen2/pii-ner-ru-benchmark[{i}]"
+        tokens = ex["tokens"]
+        tags = [feature.int2str(t) if isinstance(t, int) else t for t in ex["ner_tags"]]
+        text = " ".join(tokens)
+        runs: list[list] = []  # [start, end, label]
+        pos = 0
+        for tok, tag in zip(tokens, tags):
+            start, end = pos, pos + len(tok)
+            pos = end + 1
+            prefix, _, label = tag.partition("-")
+            if prefix not in ("B", "I") or not label:
+                continue
+            mapped = ALEXEN2_LABEL_MAP.get(label)
+            if mapped is None:
+                continue
+            if runs and tag.startswith("I-") and runs[-1][2] == mapped:
+                runs[-1][1] = end
+            else:
+                runs.append([start, end, mapped])
+        entities = []
+        for s, e, lab in runs:
+            while e > s and text[e - 1] in ",.!?:;":
+                e -= 1
+            if e > s:
+                entities.append(make_entity(s, e, lab, text))
+        entities = sanitize(entities, text)
+        validate_row(text, entities, location)
+        rows.append({"source": "alexen2_pii_ru", "text": text, "entities": entities})
+    return rows
+
+
+ALROSAIT_LABEL_MAP = {"NAME": "PERSON", "ADDRESS": "ADDRESS"}
+
+
+def extract_alrosait() -> list[dict]:
+    from datasets import load_dataset
+
+    ds = load_dataset("alrosait/pii-synthetic-ru")["train"]
+    rows: list[dict] = []
+    failures = 0
+    for i, ex in enumerate(ds):
+        location = f"alrosait/pii-synthetic-ru[{i}]"
+        text = ex["text"]
+        collected: list[list] = []  # [start, end] occupied ranges
+        entities: list[dict] = []
+        ok = True
+        for e in ex["entities"]:
+            label = ALROSAIT_LABEL_MAP.get(e["type"])
+            value = e["text"]
+            if not label or not value:
+                continue
+            idx = 0
+            while True:
+                idx = text.find(value, idx)
+                if idx < 0:
+                    ok = False
+                    break
+                end = idx + len(value)
+                if any(idx < r[1] and end > r[0] for r in collected):
+                    idx = end
+                    continue
+                break
+            if not ok:
+                break
+            collected.append([idx, idx + len(value)])
+            entities.append(make_entity(idx, idx + len(value), label, text))
+        if not ok:
+            failures += 1
+            continue
+        entities.sort(key=lambda e: (e["start"], e["start"] - e["end"]))
+        try:
+            validate_row(text, entities, location)
+        except IntegrationError:
+            failures += 1
+            continue
+        rows.append({"source": "alrosait_pii_ru", "text": text, "entities": entities})
+    if failures:
+        print(f"alrosait: skipped {failures} rows failing entity location", file=sys.stderr)
+    return rows
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output-dir", type=Path, default=REPO_ROOT / "data" / "csv")
@@ -335,6 +496,9 @@ def main() -> int:
         ("hivetrace/pii-bench", extract_hivetrace),
         ("redmadrobot-rnd/pii_benchmark", extract_redmadrobot_benchmark),
         ("Meddies/meddies-pii russian", extract_meddies_russian),
+        ("tomaarsen/MultiCoNER ru", extract_multiconer_negatives),
+        ("alexen2/pii-ner-ru-benchmark", extract_alexen2),
+        ("alrosait/pii-synthetic-ru", extract_alrosait),
     ]
     stats = {name: {"rows": 0, "dups_existing": 0, "non_russian": 0} for name, _ in extractors}
     additions: dict[str, list[dict]] = {s: [] for s in SPLITS}
@@ -354,7 +518,7 @@ def main() -> int:
             split = split_for(key)
             stats[name]["rows"] += 1
             label_counts.update(e["label"] for e in row["entities"])
-            prefix = {"hivetrace_pii_bench": "hivetrace", "redmadrobot_pii_benchmark": "rmr-bench", "meddies_pii_ru": "meddies-ru"}[row["source"]]
+            prefix = SOURCE_PREFIXES[row["source"]]
             additions[split].append(
                 {
                     "id": f"{prefix}-{split}-{len(additions[split])}",
