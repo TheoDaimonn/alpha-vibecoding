@@ -8,3 +8,6 @@
 !artifacts/
 !artifacts/student-pii.pt
 **/__pycache__/
+!artifacts/rubert-tiny2-fine-tuning/
+!artifacts/rubert-tiny2-fine-tuning/**
+**/__pycache__/

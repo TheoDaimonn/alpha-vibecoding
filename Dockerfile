@@ -8,5 +8,6 @@ RUN pip install --upgrade pip \
 COPY src ./src
 COPY ru_pii ./ru_pii
 COPY artifacts/student-pii.pt ./artifacts/student-pii.pt
+COPY artifacts/rubert-tiny2-fine-tuning ./artifacts/rubert-tiny2-fine-tuning
 EXPOSE 8000
 CMD ["python", "-m", "src.run_api"]

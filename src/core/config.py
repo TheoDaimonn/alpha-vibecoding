@@ -17,6 +17,11 @@ def _str(name: str, default: str) -> str:
     return os.getenv(name, default)
 
 
+def _optional_int(name: str) -> int | None:
+    value = os.getenv(name, "").strip()
+    return int(value) if value else None
+
+
 @dataclass(frozen=True)
 class Settings:
     # --- HTTP API ---
@@ -37,6 +42,14 @@ class Settings:
     student_model_path: str = field(
         default_factory=lambda: _str("STUDENT_MODEL_PATH", "artifacts/student-pii.pt")
     )
+    rubert_model_path: str = field(
+        default_factory=lambda: _str("RUBERT_MODEL_PATH", "artifacts/rubert-tiny2-fine-tuning")
+    )
+    # Empty window settings use the checkpoint configuration.
+    rubert_max_len: int | None = field(default_factory=lambda: _optional_int("RUBERT_MAX_LEN"))
+    rubert_stride: int | None = field(default_factory=lambda: _optional_int("RUBERT_STRIDE"))
+    onnx_intra_threads: int = field(default_factory=lambda: _int("ONNX_INTRA_THREADS", 1))
+    onnx_inter_threads: int = field(default_factory=lambda: _int("ONNX_INTER_THREADS", 1))
     device: str = field(default_factory=lambda: _str("DEVICE", "cpu"))
     model_batch_size: int = field(default_factory=lambda: _int("MODEL_BATCH_SIZE", 16))
     worker_batch_size: int = field(default_factory=lambda: _int("WORKER_BATCH_SIZE", 32))

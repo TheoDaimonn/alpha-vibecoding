@@ -8,6 +8,7 @@ from ..core.config import Settings, settings
 from .base import Detector
 from .hybrid import HybridDetector
 from .postprocess import PostProcessedDetector
+from .rubert_onnx_detector import RubertOnnxDetector
 from .rules import RuleDetector
 from .student_detector import StudentDetector
 
@@ -16,6 +17,14 @@ DetectorBuilder = Callable[[Settings], Detector]
 
 def _student(config: Settings) -> Detector:
     return StudentDetector(config.student_model_path, device=config.device)
+
+
+def _rubert_onnx(config: Settings) -> Detector:
+    return RubertOnnxDetector(
+        config.rubert_model_path, batch_size=config.model_batch_size,
+        max_len=config.rubert_max_len, stride=config.rubert_stride,
+        intra_threads=config.onnx_intra_threads, inter_threads=config.onnx_inter_threads,
+    )
 
 
 def _rules(config: Settings) -> Detector:
@@ -29,6 +38,7 @@ def _hybrid(config: Settings) -> Detector:
 _BUILDERS: Mapping[str, DetectorBuilder] = MappingProxyType({
     "student": _student,
     "rules": _rules,
+    "rubert_onnx": _rubert_onnx,
     "hybrid": _hybrid,
 })
 

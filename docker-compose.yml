@@ -7,14 +7,25 @@ services:
     build: .
     command: ["python", "-m", "src.run_api"]
     environment:
-      DETECTOR: student
-      STUDENT_MODEL_PATH: /app/artifacts/student-pii.pt
-      CORRELATION_STORE: redis
-      REDIS_URL: redis://redis:6379/0
+      DETECTOR: "${DETECTOR:-student}"
+      STUDENT_MODEL_PATH: "${STUDENT_MODEL_PATH:-/app/artifacts/student-pii.pt}"
+      RUBERT_MODEL_PATH: "${RUBERT_MODEL_PATH:-/app/artifacts/rubert-tiny2-fine-tuning}"
+      CORRELATION_STORE: "${CORRELATION_STORE:-redis}"
+      REDIS_URL: "${REDIS_URL:-redis://redis:6379/0}"
+      MODEL_BATCH_SIZE: "${MODEL_BATCH_SIZE:-16}"
+      RUBERT_MAX_LEN: "${RUBERT_MAX_LEN:-}"
+      RUBERT_STRIDE: "${RUBERT_STRIDE:-}"
+      ONNX_INTRA_THREADS: "${ONNX_INTRA_THREADS:-1}"
+      ONNX_INTER_THREADS: "${ONNX_INTER_THREADS:-1}"
+      DEVICE: "${DEVICE:-cpu}"
+      THRESHOLD: "${THRESHOLD:-0.5}"
+      POSTPROCESS: "${POSTPROCESS:-0}"
+      REQUEST_TIMEOUT_S: "${REQUEST_TIMEOUT_S:-9}"
+      RESULT_TTL_S: "${RESULT_TTL_S:-3600}"
       API_KEYS: "${API_KEYS:-}"
-      WORKER_THREADS: "2"
-      WORKER_BATCH_SIZE: "32"
-      WORKER_BATCH_TIMEOUT_S: "0.02"
+      WORKER_THREADS: "${WORKER_THREADS:-2}"
+      WORKER_BATCH_SIZE: "${WORKER_BATCH_SIZE:-32}"
+      WORKER_BATCH_TIMEOUT_S: "${WORKER_BATCH_TIMEOUT_S:-0.02}"
       API_WORKERS: "${API_WORKERS:-1}"
     ports:
       - "${API_PORT:-8000}:8000"
@@ -35,7 +46,7 @@ services:
   tunnel:
     build: ./deploy/tunnel
     environment:
-      TUNNEL_TARGET: api:8000
+      TUNNEL_TARGET: "${TUNNEL_TARGET:-api:8000}"
     depends_on:
       api:
         condition: service_healthy
