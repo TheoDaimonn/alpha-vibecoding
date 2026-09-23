@@ -6,31 +6,16 @@ from types import MappingProxyType
 
 from ..core.config import Settings, settings
 from .base import Detector
-from .gliner import GLiNERDetector
 from .hybrid import HybridDetector
 from .postprocess import PostProcessedDetector
 from .rules import RuleDetector
 from .student_detector import StudentDetector
-from .transformer_detector import TransformerDetector
 
 DetectorBuilder = Callable[[Settings], Detector]
 
 
-def _gliner(config: Settings) -> Detector:
-    return GLiNERDetector(
-        config.model_path,
-        device=config.device,
-        batch_size=config.model_batch_size,
-        threshold=config.threshold,
-    )
-
-
 def _student(config: Settings) -> Detector:
     return StudentDetector(config.student_model_path, device=config.device)
-
-
-def _transformer(config: Settings) -> Detector:
-    return TransformerDetector(config.transformer_model_path, device=config.device)
 
 
 def _rules(config: Settings) -> Detector:
@@ -38,13 +23,11 @@ def _rules(config: Settings) -> Detector:
 
 
 def _hybrid(config: Settings) -> Detector:
-    return HybridDetector(_gliner(config))
+    return HybridDetector(_student(config))
 
 
 _BUILDERS: Mapping[str, DetectorBuilder] = MappingProxyType({
-    "gliner": _gliner,
     "student": _student,
-    "transformer": _transformer,
     "rules": _rules,
     "hybrid": _hybrid,
 })
@@ -60,7 +43,7 @@ def create_detector(
 
     Existing callers use process settings. Tests and alternative deployments can
     supply their own settings/registry without mutating global state. A supplied
-    registry replaces the defaults; hybrid uses a raw GLiNER backend by default.
+    registry replaces the defaults; hybrid uses a raw student backend by default.
     """
     config = settings if config is None else config
     registry = _BUILDERS if builders is None else builders

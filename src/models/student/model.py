@@ -95,42 +95,7 @@ class BiLSTMCRF(nn.Module):
         out = self.dropout(out)
         return self.fc(out)  # [B, T, num_tags]
 
-    def forward_loss(self, chars: torch.Tensor, tags: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
-        emissions = self._emissions(chars)
-        return -self._log_likelihood(emissions, tags, mask).mean()
 
-    def _log_likelihood(self, emissions: torch.Tensor, tags: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
-        """CRF log-likelihood = score(gold) - logsumexp(all paths)."""
-        batch, seq, _ = emissions.shape
-        # Gold path score.
-        gold = self._start[tags[:, 0]] + emissions[torch.arange(batch), 0, tags[:, 0]]
-        for t in range(1, seq):
-            valid = mask[:, t]
-            if not valid.any():
-                continue
-            prev = tags[:, t - 1]
-            cur = tags[:, t]
-            step = self.transitions[prev, cur] + emissions[torch.arange(batch), t, cur]
-            # Only add contributions for valid (non-padded) positions.
-            gold = gold + torch.where(valid, step, torch.zeros_like(step))
-        last = mask.sum(dim=1) - 1
-        gold = gold + self._end[tags[torch.arange(batch), last]]
-
-        # Partition function via the forward algorithm.
-        alpha = self._start + emissions[:, 0]  # [B, T]
-        for t in range(1, seq):
-            valid = mask[:, t]
-            if not valid.any():
-                continue
-            # alpha_prev [B, T] -> next [B, T, T] over (prev, cur)
-            next_alpha = alpha.unsqueeze(2) + self.transitions.unsqueeze(0) + emissions[:, t].unsqueeze(1)
-            new_alpha = torch.logsumexp(next_alpha, dim=1)
-            # Preserve alpha for padded positions.
-            alpha = torch.where(valid.unsqueeze(1), new_alpha, alpha)
-        # alpha is [B, num_tags] at each item's last valid position (padded
-        # positions preserve the previous alpha). log_z = logsumexp over tags.
-        log_z = torch.logsumexp(alpha + self._end, dim=1)
-        return gold - log_z
 
     def decode(self, chars: torch.Tensor, mask: torch.Tensor) -> list[list[int]]:
         """Viterbi decoding. Returns a list of tag sequences (one per batch item)."""
@@ -158,13 +123,6 @@ class BiLSTMCRF(nn.Module):
             out.append(path)
         return out
 
-    def save(self, path: str | Path) -> None:
-        path = Path(path)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        torch.save(
-            {"state_dict": self.state_dict(), "config": self.cfg.__dict__},
-            path,
-        )
 
     @classmethod
     def load(cls, path: str | Path) -> "BiLSTMCRF":

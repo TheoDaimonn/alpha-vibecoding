@@ -1,43 +1,21 @@
-# PII Security Module — local orchestration.
-#   docker compose up --build
-#
-# The default transport is in-process (fastest): each API worker owns an
-# inference engine with a pool of worker threads. Redis is optional and only
-# needed when CORRELATION_STORE=redis (shared across nodes). RabbitMQ is
-# optional and only used when TRANSPORT=rabbitmq (distributed workers).
-#
-# Scale API workers to raise RPS:  API_WORKERS=4 gives ~1600 RPS with the
-# rules detector on a 4-core machine.
 services:
   redis:
     image: redis:7-alpine
     command: ["redis-server", "--appendonly", "yes"]
 
-  rabbitmq:
-    image: rabbitmq:3-management-alpine
-    ports:
-      - "127.0.0.1:5672:5672"
-      - "127.0.0.1:15672:15672"
-    environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
-    profiles: ["rabbitmq"]
-
   api:
     build: .
     command: ["python", "-m", "src.run_api"]
     environment:
-      MODEL_PATH: /app/ru_gliner_hybrid_v4/models/gliner-ru-pii-small
       DETECTOR: student
       STUDENT_MODEL_PATH: /app/artifacts/student-pii.pt
       CORRELATION_STORE: redis
       REDIS_URL: redis://redis:6379/0
       API_KEYS: "${API_KEYS:-}"
-      TRANSPORT: inprocess
       WORKER_THREADS: "2"
       WORKER_BATCH_SIZE: "32"
       WORKER_BATCH_TIMEOUT_S: "0.02"
-      API_WORKERS: "${API_WORKERS:-8}"
+      API_WORKERS: "${API_WORKERS:-1}"
     ports:
       - "${API_PORT:-8000}:8000"
     depends_on:

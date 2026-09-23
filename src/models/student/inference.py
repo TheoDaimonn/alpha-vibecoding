@@ -1,12 +1,7 @@
-"""Convert corpus records (char spans) to/from BIO tag sequences for the student.
-
-Also provides the fast inference path: given raw text, run the BiLSTM-CRF and
-return :class:`ru_pii.schema.Entity` objects.
-"""
+"""Character-level student inference: raw text to entity spans."""
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Iterable
 
 import torch
 
@@ -14,26 +9,13 @@ from ru_pii.schema import Entity
 
 from ..batched import BatchedDetector
 
-from .model import BiLSTMCRF, char_id, tag_id, tag_to_label, O_TAG
+from .model import BiLSTMCRF, char_id, tag_to_label
 
 
 def text_to_chars(text: str, max_len: int = 512) -> list[int]:
     return [char_id(c) for c in text[:max_len]]
 
 
-def spans_to_tags(text: str, spans: Iterable[tuple[int, int, str]], max_len: int = 512) -> list[int]:
-    """Build BIO tags over characters from (start, end, label) spans."""
-    n = min(len(text), max_len)
-    tags = [O_TAG] * n
-    for start, end, label in spans:
-        start = max(0, start)
-        end = min(n, end)
-        if start >= end:
-            continue
-        tags[start] = tag_id(label, "B")
-        for i in range(start + 1, end):
-            tags[i] = tag_id(label, "I")
-    return tags
 
 
 def tags_to_entities(text: str, tags: list[int]) -> list[Entity]:

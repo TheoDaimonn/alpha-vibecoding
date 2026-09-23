@@ -1,15 +1,4 @@
-"""In-process inference engine (fast path).
-
-For maximum RPS the HTTP layer talks to the detector directly through an
-in-memory queue instead of RabbitMQ + Redis polling. A pool of worker threads
-batches requests and runs the detector; results are delivered back through
-asyncio futures. Redis is still used for the payload_id correlation store
-(masking -> unmasking), but not for result delivery.
-
-This removes the network round-trips (RabbitMQ publish, Redis poll) that limit
-throughput under high concurrency. RabbitMQ remains available as an optional
-distributed transport (see worker.py).
-"""
+"""In-process batched inference and masking with a shared correlation store."""
 from __future__ import annotations
 
 import asyncio

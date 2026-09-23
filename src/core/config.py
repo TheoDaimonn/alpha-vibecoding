@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
-from pathlib import Path
 
 
 def _int(name: str, default: int) -> int:
@@ -30,28 +29,13 @@ class Settings:
     redis_url: str = field(default_factory=lambda: _str("REDIS_URL", "redis://localhost:6379/0"))
     result_ttl_s: int = field(default_factory=lambda: _int("RESULT_TTL_S", 3600))
 
-    # --- RabbitMQ ---
-    rabbitmq_url: str = field(default_factory=lambda: _str("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/"))
-    queue_name: str = field(default_factory=lambda: _str("QUEUE_NAME", "pii_jobs"))
-    # Transport: inprocess (fast, default) | rabbitmq (distributed)
-    transport: str = field(default_factory=lambda: _str("TRANSPORT", "inprocess"))
     # Correlation store: memory (fast, default) | redis (shared)
     correlation_store: str = field(default_factory=lambda: _str("CORRELATION_STORE", "memory"))
 
     # --- Model / worker ---
-    model_path: str = field(
-        default_factory=lambda: _str(
-            "MODEL_PATH",
-            str(Path(__file__).resolve().parents[2] / "ru_gliner_hybrid_v4" / "models" / "gliner-ru-pii-small"),
-        )
-    )
-    # Detector engine: gliner | student | rules | hybrid
-    detector: str = field(default_factory=lambda: _str("DETECTOR", "gliner"))
+    detector: str = field(default_factory=lambda: _str("DETECTOR", "student"))
     student_model_path: str = field(
         default_factory=lambda: _str("STUDENT_MODEL_PATH", "artifacts/student-pii.pt")
-    )
-    transformer_model_path: str = field(
-        default_factory=lambda: _str("TRANSFORMER_MODEL_PATH", "artifacts/transformer-pii.pt")
     )
     device: str = field(default_factory=lambda: _str("DEVICE", "cpu"))
     model_batch_size: int = field(default_factory=lambda: _int("MODEL_BATCH_SIZE", 16))

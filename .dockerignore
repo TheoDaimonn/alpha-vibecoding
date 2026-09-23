@@ -1,21 +1,10 @@
-# Only runtime files are needed in the build context.
 **
-!Dockerfile
 !requirements.txt
+!Dockerfile
 !src/
 !src/**
-!ru_gliner_hybrid_v4/
-!ru_gliner_hybrid_v4/ru_pii/
-!ru_gliner_hybrid_v4/ru_pii/**
-!ru_gliner_hybrid_v4/models/
-!ru_gliner_hybrid_v4/models/gliner-ru-pii-small/
-!ru_gliner_hybrid_v4/models/gliner-ru-pii-small/**
+!ru_pii/
+!ru_pii/**
 !artifacts/
 !artifacts/student-pii.pt
 **/__pycache__/
-
-# Support the separate mirror image without including request logs.
-!mirror/
-!mirror/Dockerfile
-!mirror/requirements.txt
-!mirror/app.py
